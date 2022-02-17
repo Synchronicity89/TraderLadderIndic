@@ -29,6 +29,13 @@ namespace Gemify.OrderFlow
         SELLER
     }
 
+    public enum OFSCalculationMode
+    {
+        COMBINED,
+        IMBALANCE,
+        BUY_SELL
+    }
+
     class GemsOrderFlow
     {
 
@@ -45,15 +52,16 @@ namespace Gemify.OrderFlow
         
         private double imbalanceFactor;
         private long imbalanceInvalidateDistance;
+        private const int minSlidingWindowTrades = 1;
 
         // To support Print
         private Indicator ind;
 
-        internal GemsOrderFlow (double imbalanceFactor)
+        public GemsOrderFlow (ITradeClassifier tradeClassifier, double imbalanceFactor)
         {
             ind = new Indicator();
 
-            tradeClassifier = new SimpleTradeClassifier();
+            this.tradeClassifier = tradeClassifier;
 
             this.imbalanceFactor = imbalanceFactor;
             this.imbalanceInvalidateDistance = 10;
@@ -288,31 +296,42 @@ namespace Gemify.OrderFlow
             return sellImbalance;
         }
 
-        internal OFStrength CalculateOrderFlowStrength(double price, double tickSize)
+        internal OFStrength CalculateOrderFlowStrength(OFSCalculationMode mode, double price, double tickSize)
         {
             OFStrength orderFlowStrength = new OFStrength();
 
-            // Imbalance data
-            long buyImbalance = GetImbalancedBuys(price, tickSize);
-            long sellImbalance = GetImbalancedSells(price, tickSize);
-
-            if (buyImbalance + sellImbalance == 0)
-            {
-                buyImbalance = sellImbalance = 1;
+            // Short-circuit if there's not enough data
+            if ((SlidingWindowBuys.Count + SlidingWindowSells.Count) < minSlidingWindowTrades) {
+                return orderFlowStrength;
             }
 
-            long totalImbalance = buyImbalance + sellImbalance;
+            long buyImbalance = 0, sellImbalance = 0, totalImbalance = 0, buysInSlidingWindow = 0, sellsInSlidingWindow = 0, totalVolume = 0;
 
-            // Buy/Sell data in sliding window
-            long buysInSlidingWindow = GetBuysInSlidingWindow();
-            long sellsInSlidingWindow = GetSellsInSlidingWindow();
+            if (mode == OFSCalculationMode.COMBINED || mode == OFSCalculationMode.IMBALANCE) {
+                // Imbalance data
+                buyImbalance = GetImbalancedBuys(price, tickSize);
+                sellImbalance = GetImbalancedSells(price, tickSize);
 
-            if (buysInSlidingWindow + sellsInSlidingWindow == 0)
-            {
-                buysInSlidingWindow = sellsInSlidingWindow = 1;
+                if (buyImbalance + sellImbalance == 0)
+                {
+                    buyImbalance = sellImbalance = 1;
+                }
+
+                totalImbalance = buyImbalance + sellImbalance;
             }
 
-            long totalVolume = sellsInSlidingWindow + buysInSlidingWindow;
+            if (mode == OFSCalculationMode.COMBINED || mode == OFSCalculationMode.BUY_SELL) {
+                // Buy/Sell data in sliding window
+                buysInSlidingWindow = GetBuysInSlidingWindow();
+                sellsInSlidingWindow = GetSellsInSlidingWindow();
+
+                if (buysInSlidingWindow + sellsInSlidingWindow == 0)
+                {
+                    buysInSlidingWindow = sellsInSlidingWindow = 1;
+                }
+
+                totalVolume = sellsInSlidingWindow + buysInSlidingWindow;
+            }
 
             orderFlowStrength.buyStrength = (Convert.ToDouble(buysInSlidingWindow + buyImbalance) / Convert.ToDouble(totalVolume + totalImbalance)) * 100.00;
             orderFlowStrength.sellStrength = (Convert.ToDouble(sellsInSlidingWindow + sellImbalance) / Convert.ToDouble(totalVolume + totalImbalance)) * 100.8;
