@@ -19,5 +19,10 @@ This software is provided for free, including the source code for it. At some po
 Please refer to the documentation here: https://github.com/OrderFlowTools/TraderLadder/wiki
 
 ## Screenshots
+![DarkScreenShot_1](https://github.com/OrderFlowTools/TraderLadder/blob/0.3.2/images/Dark_1.PNG?raw=true)
 ![GemsTraderLadder](https://user-images.githubusercontent.com/25984676/146658180-d1aef8cb-f6c0-4949-8427-72a0917a6108.png)
-![ES-Ladder](https://user-images.githubusercontent.com/25984676/146658334-0590dbe4-3a44-407b-8f72-c951f9f9d91c.PNG)
+![LightScreenShot_1](https://github.com/OrderFlowTools/TraderLadder/blob/0.3.2/images/Light_1.PNG?raw=true)
+![DarkScreenShot_3](https://github.com/OrderFlowTools/TraderLadder/blob/0.3.2/images/Dark_3.PNG?raw=true)
+![DarkScreenShot_2](https://github.com/OrderFlowTools/TraderLadder/blob/0.3.2/images/Dark_2.PNG?raw=true)
+![LightScreenShot_2](https://github.com/OrderFlowTools/TraderLadder/blob/0.3.2/images/Light_2.PNG?raw=true)
+
