@@ -1,5 +1,5 @@
 # TraderLadder
-Current version: 0.3.1
+Current version: 0.3.2
 
 Free SuperDOM Ladder for Order Flow traders on Ninjatrader.
 
@@ -12,9 +12,17 @@ TraderLadder is a free order flow ladder for Ninjatrader v8. The SuperDOM column
 - Volume histogram
 - If in a position, Current P/L + Session P/L + Account cash value
 
+## Disclaimer
+This software is provided for free, including the source code for it. At some point, Ninjatrader will (fingers-crossed) provide an OrderFlow DOM of their own. Until then, hopefully this can help fill in the gap - in the free software domain :)
+
 ## Documentation
 Please refer to the documentation here: https://github.com/OrderFlowTools/TraderLadder/wiki
 
 ## Screenshots
+![DarkScreenShot_1](https://github.com/OrderFlowTools/TraderLadder/blob/0.3.2/images/Dark_1.PNG?raw=true)
 ![GemsTraderLadder](https://user-images.githubusercontent.com/25984676/146658180-d1aef8cb-f6c0-4949-8427-72a0917a6108.png)
-![ES-Ladder](https://user-images.githubusercontent.com/25984676/146658334-0590dbe4-3a44-407b-8f72-c951f9f9d91c.PNG)
+![LightScreenShot_1](https://github.com/OrderFlowTools/TraderLadder/blob/0.3.2/images/Light_1.PNG?raw=true)
+![DarkScreenShot_3](https://github.com/OrderFlowTools/TraderLadder/blob/0.3.2/images/Dark_3.PNG?raw=true)
+![DarkScreenShot_2](https://github.com/OrderFlowTools/TraderLadder/blob/0.3.2/images/Dark_2.PNG?raw=true)
+![LightScreenShot_2](https://github.com/OrderFlowTools/TraderLadder/blob/0.3.2/images/Light_2.PNG?raw=true)
+
