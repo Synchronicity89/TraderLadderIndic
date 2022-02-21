@@ -1,5 +1,5 @@
 # TraderLadder
-Current version: 0.3.2
+Current version: 0.3.2 ([release notes](https://github.com/OrderFlowTools/TraderLadder/blob/main/RELEASE_NOTES.md))
 
 Free SuperDOM Ladder for Order Flow traders on Ninjatrader.
 
