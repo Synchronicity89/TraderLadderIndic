@@ -167,9 +167,9 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
                 SellImbalanceColor = Brushes.Magenta;
                 BuyImbalanceColor = Brushes.Cyan;
                 LastTradeColor = Brushes.White;
-                HeaderRowColor = Application.Current.TryFindResource("GridRowHighlight") as LinearGradientBrush;
+                DefaultBackgroundColor = Application.Current.TryFindResource("brushPriceColumnBackground") as SolidColorBrush;
+                CurrentPriceRowColor = HeaderRowColor = Application.Current.TryFindResource("GridRowHighlight") as LinearGradientBrush;
                 HeadersTextColor = Application.Current.TryFindResource("FontControlBrush") as SolidColorBrush; 
-                CurrentPriceRowColor = Application.Current.TryFindResource("GridRowHighlight") as LinearGradientBrush;
 
                 SellColumnColor = new SolidColorBrush(Color.FromRgb(40, 15, 15));
                 AskColumnColor = new SolidColorBrush(Color.FromRgb(30, 15, 15));
