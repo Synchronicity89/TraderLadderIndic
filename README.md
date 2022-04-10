@@ -22,6 +22,14 @@ Please refer to the documentation here: https://github.com/OrderFlowTools/Trader
 
 ## Screenshots
 ![DarkScreenShot_1](https://github.com/OrderFlowTools/screenshots/blob/main/traderladder/v0.3.3/full.PNG)
+
+The screenshot below shows the **largest trades** that occurred at each price within the sliding window time period. 
+This information can be viewed by using SHIFT + Left-Click (left-click while holding down the Shift Key). To toggle back to the original view, simply use SHIFT + Left-Click again.
+
 ![DarkScreenShot_1](https://github.com/OrderFlowTools/screenshots/blob/main/traderladder/v0.3.3/largest-trades.PNG)
+
+The screenshot below shows the **latest trades** that occurred at each price within the sliding window time period. 
+This information can be viewed by using CTRL + Left-Click (left-click while holding down the Control/CTRL Key). To toggle back to the original view, simply use CTRL + Left-Click again.
+
 ![DarkScreenShot_1](https://github.com/OrderFlowTools/screenshots/blob/main/traderladder/v0.3.3/last-prints.PNG)
 
