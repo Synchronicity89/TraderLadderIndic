@@ -1,3 +1,7 @@
+// 
+// Copyright (C) 2021, Gem Immanuel (gemify@gmail.com)
+//
+
 using NinjaTrader.Cbi;
 using System;
 using System.Collections.Concurrent;
@@ -22,6 +26,17 @@ namespace Gemify.OrderFlow
         internal double Bid { get; set; }
         internal DateTime Time { get; set; }
     }
+
+    class BidAsk
+    {
+        internal double Size { get; set; }
+        internal DateTime Time { get; set; }
+    }
+
+    class BidAskPerc : BidAsk
+    {
+        internal double Perc { get; set; }
+    }
 	
 	enum TradeAggressor
     {
@@ -43,8 +58,17 @@ namespace Gemify.OrderFlow
 
         private ConcurrentDictionary<double, Trade> SlidingWindowBuys;
         private ConcurrentDictionary<double, Trade> SlidingWindowSells;
+        private ConcurrentDictionary<double, BidAsk> SlidingWindowBids;
+        private ConcurrentDictionary<double, BidAsk> SlidingWindowAsks;
         private ConcurrentDictionary<double, long> LastBuy;
         private ConcurrentDictionary<double, long> LastSell;
+        private ConcurrentDictionary<double, BidAskPerc> BidsPerc;
+        private ConcurrentDictionary<double, BidAskPerc> AsksPerc;        
+        private ConcurrentDictionary<double, long> LastBuyPrint;
+        private ConcurrentDictionary<double, long> LastSellPrint;
+        private ConcurrentDictionary<double, long> LastBuyPrintMax;
+        private ConcurrentDictionary<double, long> LastSellPrintMax;        
+
         private ConcurrentDictionary<double, long> TotalBuys;
         private ConcurrentDictionary<double, long> TotalSells;
         private ConcurrentDictionary<double, long> PrevBid;
@@ -68,13 +92,21 @@ namespace Gemify.OrderFlow
 
             SlidingWindowBuys = new ConcurrentDictionary<double, Trade>();
             SlidingWindowSells = new ConcurrentDictionary<double, Trade>();
+            SlidingWindowBids = new ConcurrentDictionary<double, BidAsk>();
+            SlidingWindowAsks = new ConcurrentDictionary<double, BidAsk>();            
             TotalBuys = new ConcurrentDictionary<double, long>();
             TotalSells = new ConcurrentDictionary<double, long>();
 
             LastBuy = new ConcurrentDictionary<double, long>();
             LastSell = new ConcurrentDictionary<double, long>();
+            LastBuyPrint = new ConcurrentDictionary<double, long>();
+            LastSellPrint = new ConcurrentDictionary<double, long>();
+            LastBuyPrintMax = new ConcurrentDictionary<double, long>();
+            LastSellPrintMax = new ConcurrentDictionary<double, long>();
             PrevAsk = new ConcurrentDictionary<double, long>();
             PrevBid = new ConcurrentDictionary<double, long>();
+            BidsPerc = new ConcurrentDictionary<double, BidAskPerc>();
+            AsksPerc = new ConcurrentDictionary<double, BidAskPerc>();
         }
 
         internal void ClearAll()
@@ -87,20 +119,60 @@ namespace Gemify.OrderFlow
 
             PrevBid.Clear();
             PrevAsk.Clear();
+
+            BidsPerc.Clear();
+            AsksPerc.Clear();
         }
 
         internal void ClearSlidingWindow()
         {
             SlidingWindowBuys.Clear();
             SlidingWindowSells.Clear();
+            SlidingWindowBids.Clear();
+            SlidingWindowAsks.Clear();            
             LastBuy.Clear();
             LastSell.Clear();
+            LastBuyPrint.Clear();
+            LastSellPrint.Clear();
+            LastBuyPrintMax.Clear();
+            LastSellPrintMax.Clear();
         }
 
         private void Print(string s)
         {
             ind.Print(s);
         }
+
+        internal void CalculateBidAskPerc(List<NinjaTrader.Gui.SuperDom.LadderRow> askLadder, List<NinjaTrader.Gui.SuperDom.LadderRow> bidLadder) {
+            AsksPerc.Clear();
+            BidsPerc.Clear();
+            double maxBidAsk = 0;
+            foreach (NinjaTrader.Gui.SuperDom.LadderRow row in askLadder)
+            {
+                maxBidAsk = row.Volume > maxBidAsk ? row.Volume : maxBidAsk;
+            }
+            foreach (NinjaTrader.Gui.SuperDom.LadderRow row in bidLadder)
+            {
+                maxBidAsk = row.Volume > maxBidAsk ? row.Volume : maxBidAsk;
+            }
+
+            foreach (NinjaTrader.Gui.SuperDom.LadderRow row in askLadder)
+            {
+                BidAskPerc perc = new BidAskPerc();
+                perc.Size = row.Volume;
+                perc.Perc = row.Volume/maxBidAsk;
+                AsksPerc.AddOrUpdate(row.Price, perc, (price, existing) => existing = perc);
+            }
+
+            foreach (NinjaTrader.Gui.SuperDom.LadderRow row in bidLadder)
+            {
+                BidAskPerc perc = new BidAskPerc();
+                perc.Size = row.Volume;
+                perc.Perc = row.Volume/maxBidAsk;
+                BidsPerc.AddOrUpdate(row.Price, perc, (price, existing) => existing = perc);
+            }
+        }
+
 
         /*
          * Classifies given trade as either buyer or seller initiated based on configured classifier.
@@ -133,6 +205,12 @@ namespace Gemify.OrderFlow
                     SlidingWindowBuys.AddOrUpdate(close, trade, (price, existingTrade) => existingTrade = trade);
                     // Update last buy
                     LastBuy.AddOrUpdate(close, volume, (price, oldVolume) => volume);
+                    LastBuyPrint.AddOrUpdate(close, volume, (price, oldVolume) => volume);
+                    long lastMax = 0;
+                    LastBuyPrintMax.TryGetValue(close, out lastMax);
+                    if (volume > lastMax) {
+                        LastBuyPrintMax.AddOrUpdate(close, volume, (price, oldVolume) => volume);
+                    }
                 }
                 TotalBuys.AddOrUpdate(close, volume, (price, oldVolume) => oldVolume + volume);
             }
@@ -159,6 +237,12 @@ namespace Gemify.OrderFlow
                     SlidingWindowSells.AddOrUpdate(close, trade, (price, existingTrade) => existingTrade = trade);
                     // Update last sell
                     LastSell.AddOrUpdate(close, volume, (price, oldVolume) => volume);
+                    LastSellPrint.AddOrUpdate(close, volume, (price, oldVolume) => volume);
+                    long lastMax = 0;
+                    LastSellPrintMax.TryGetValue(close, out lastMax);
+                    if (volume > lastMax) {
+                        LastSellPrintMax.AddOrUpdate(close, volume, (price, oldVolume) => volume);
+                    }
                 }
                 TotalSells.AddOrUpdate(close, volume, (price, oldVolume) => oldVolume + volume);
             }
@@ -175,7 +259,7 @@ namespace Gemify.OrderFlow
                 total += trade.Size;
             }
             return total;
-        }
+        }        
 
         /*
         * Gets total sell volume in the sliding window
@@ -188,7 +272,7 @@ namespace Gemify.OrderFlow
                 total += trade.Size;
             }
             return total;
-        }
+        }      
 
         /*
          * Gets total volume transacted (buyers + sellers) at given price.
@@ -221,6 +305,8 @@ namespace Gemify.OrderFlow
                         SlidingWindowBuys.TryRemove(price, out trade);
                         long oldVolume;
                         LastBuy.TryRemove(price, out oldVolume);
+                        LastBuyPrint.TryRemove(price, out oldVolume);
+                        LastBuyPrintMax.TryRemove(price, out oldVolume);
                     }
                 }
             }
@@ -237,9 +323,39 @@ namespace Gemify.OrderFlow
                         SlidingWindowSells.TryRemove(price, out trade);
                         long oldVolume;
                         LastSell.TryRemove(price, out oldVolume);
+                        LastSellPrint.TryRemove(price, out oldVolume);
+                        LastSellPrintMax.TryRemove(price, out oldVolume);
                     }
                 }
             }
+
+            foreach (double price in SlidingWindowBids.Keys)
+            {
+                BidAsk bidAsk;
+                bool gotItem = SlidingWindowBids.TryGetValue(price, out bidAsk);
+                if (gotItem)
+                {
+                    TimeSpan diff = time - bidAsk.Time;
+                    if (diff.TotalSeconds > TradeSlidingWindowSeconds)
+                    {
+                        SlidingWindowBids.TryRemove(price, out bidAsk);
+                    }
+                }
+            } 
+
+            foreach (double price in SlidingWindowAsks.Keys)
+            {
+                BidAsk bidAsk;
+                bool gotItem = SlidingWindowAsks.TryGetValue(price, out bidAsk);
+                if (gotItem)
+                {
+                    TimeSpan diff = time - bidAsk.Time;
+                    if (diff.TotalSeconds > TradeSlidingWindowSeconds)
+                    {
+                        SlidingWindowAsks.TryRemove(price, out bidAsk);
+                    }
+                }
+            }                        
         }
 
         internal long GetImbalancedBuys(double currentPrice, double tickSize)
@@ -294,6 +410,18 @@ namespace Gemify.OrderFlow
             }
 
             return sellImbalance;
+        }
+
+        internal BidAskPerc GetBidPerc (double price) {
+            BidAskPerc bidAskPerc = null;
+            this.BidsPerc.TryGetValue(price, out bidAskPerc);
+            return bidAskPerc;
+        }
+
+        internal BidAskPerc GetAskPerc (double price) {
+            BidAskPerc bidAskPerc = null;
+            this.AsksPerc.TryGetValue(price, out bidAskPerc);
+            return bidAskPerc;
         }
 
         internal OFStrength CalculateOrderFlowStrength(OFSCalculationMode mode, double price, double tickSize)
@@ -417,6 +545,20 @@ namespace Gemify.OrderFlow
             return trade;
         }
 
+        internal BidAsk GetBidsInSlidingWindow(double price)
+        {
+            BidAsk item = null;
+            SlidingWindowBids.TryGetValue(price, out item);
+            return item;
+        }
+
+        internal BidAsk GetAsksInSlidingWindow(double price)
+        {
+            BidAsk item = null;
+            SlidingWindowAsks.TryGetValue(price, out item);
+            return item;
+        }       
+
         internal long GetLastBuySize(double price)
         {
             long lastSize = 0;
@@ -430,6 +572,34 @@ namespace Gemify.OrderFlow
             LastSell.TryGetValue(price, out lastSize);
             return lastSize;
         }
+
+        internal long GetLastBuyPrint(double price)
+        {
+            long lastSize = 0;
+            LastBuyPrint.TryGetValue(price, out lastSize);
+            return lastSize;
+        }
+
+        internal long GetLastSellPrint(double price)
+        {
+            long lastSize = 0;
+            LastSellPrint.TryGetValue(price, out lastSize);
+            return lastSize;
+        }  
+
+        internal long GetLastBuyPrintMax(double price)
+        {
+            long lastSize = 0;
+            LastBuyPrintMax.TryGetValue(price, out lastSize);
+            return lastSize;
+        }
+
+        internal long GetLastSellPrintMax(double price)
+        {
+            long lastSize = 0;
+            LastSellPrintMax.TryGetValue(price, out lastSize);
+            return lastSize;
+        }               
 
         internal void RemoveLastBuy(double price)
         {
