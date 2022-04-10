@@ -21,10 +21,7 @@ This software is provided for free, including the source code for it. At some po
 Please refer to the documentation here: https://github.com/OrderFlowTools/TraderLadder/wiki
 
 ## Screenshots
-![DarkScreenShot_1](https://github.com/OrderFlowTools/TraderLadder/blob/main/images/Dark_1.PNG?raw=true)
-![GemsTraderLadder](https://user-images.githubusercontent.com/25984676/146658180-d1aef8cb-f6c0-4949-8427-72a0917a6108.png)
-![LightScreenShot_1](https://github.com/OrderFlowTools/TraderLadder/blob/main/images/Light_1.PNG?raw=true)
-![DarkScreenShot_3](https://github.com/OrderFlowTools/TraderLadder/blob/main/images/Dark_3.PNG?raw=true)
-![DarkScreenShot_2](https://github.com/OrderFlowTools/TraderLadder/blob/main/images/Dark_2.PNG?raw=true)
-![LightScreenShot_2](https://github.com/OrderFlowTools/TraderLadder/blob/main/images/Light_2.PNG?raw=true)
+![DarkScreenShot_1](https://github.com/OrderFlowTools/screenshots/blob/main/traderladder/v0.3.3/full.PNG)
+![DarkScreenShot_1](https://github.com/OrderFlowTools/screenshots/blob/main/traderladder/v0.3.3/largest-trades.PNG)
+![DarkScreenShot_1](https://github.com/OrderFlowTools/screenshots/blob/main/traderladder/v0.3.3/last-prints.PNG)
 
