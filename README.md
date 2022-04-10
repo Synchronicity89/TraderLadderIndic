@@ -7,10 +7,10 @@ TraderLadder is a free order flow ladder for Ninjatrader v8. The SuperDOM column
 
 - Last trades
 - Buys / Sells in a configurable sliding time window (defaults to 60 seconds) + Imbalance detection
-- Last prints or Largest prints at price in sliding window
+- Last prints or Largest prints at price in sliding window (**New in v0.3.3**)
 - Session Buys / Sells + Imbalance detection
 - Bid/Ask + Bid/Ask updates
-- Bid/Ask historgram
+- Bid/Ask historgram (**New in v0.3.3**)
 - Volume histogram
 - If in a position, Current P/L + Session P/L + Account cash value
 
