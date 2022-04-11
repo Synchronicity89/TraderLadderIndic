@@ -1,5 +1,5 @@
 # TraderLadder
-Current version: 0.3.3
+Current version: 0.3.2 ([release notes](https://github.com/OrderFlowTools/TraderLadder/blob/main/RELEASE_NOTES.md))
 
 Free SuperDOM Ladder for Order Flow traders on Ninjatrader.
 
@@ -32,4 +32,3 @@ The screenshot below shows the **latest trades** that occurred at each price wit
 This information can be viewed by using CTRL + Left-Click (left-click while holding down the Control/CTRL Key). To toggle back to the original view, simply use CTRL + Left-Click again.
 
 ![DarkScreenShot_1](https://github.com/OrderFlowTools/screenshots/blob/main/traderladder/v0.3.3/last-prints.PNG)
-
