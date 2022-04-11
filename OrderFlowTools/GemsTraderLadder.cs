@@ -196,7 +196,7 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
                 DisplayPL = false;
                 DisplaySessionPL = false;
                 DisplayBidAsk = false;
-                DrawBidAskSizeBoxes = true;
+                DisplayBidAskHistogram = true;
                 DisplayBidAskChange = false;
                 DisplayLastSize = true;
                 DisplaySlidingWindowBuysSells = true;
@@ -684,7 +684,7 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
                             colDef.Text = null;
                         }
                     }
-                    else if (DrawBidAskSizeBoxes && colDef.ColumnType == ColumnType.ASK && colDef.Text != null)                    
+                    else if (DisplayBidAskHistogram && colDef.ColumnType == ColumnType.ASK && colDef.Text != null)                    
                     {                        
                         BidAskPerc bidAskPerc = orderFlow.GetAskPerc(row.Price);
                         double perc = bidAskPerc == null ? 0 : bidAskPerc.Perc;
@@ -699,7 +699,7 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
                         }
 
                     }
-                    else if (DrawBidAskSizeBoxes && colDef.ColumnType == ColumnType.BID && colDef.Text != null)                    
+                    else if (DisplayBidAskHistogram && colDef.ColumnType == ColumnType.BID && colDef.Text != null)                    
                     {
                         BidAskPerc bidAskPerc = orderFlow.GetBidPerc(row.Price);
                         double perc = bidAskPerc == null ? 0 : bidAskPerc.Perc;
@@ -1433,7 +1433,7 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
 
         [XmlIgnore]
         [NinjaScriptProperty]
-        [Display(Name = "Bid Sizes Box Color", Description = "Bid Sizes Box color.", Order = 19, GroupName = "Visual")]
+        [Display(Name = "Bid Histogram Color", Description = "Bid Histogram color.", Order = 19, GroupName = "Visual")]
         public Brush BidSizeColor
         { get; set; }
 
@@ -1446,7 +1446,7 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
 
         [XmlIgnore]
         [NinjaScriptProperty]
-        [Display(Name = "Ask Sizes Box Color", Description = "Ask Sizes Box color.", Order = 20, GroupName = "Visual")]
+        [Display(Name = "Ask Histogram Color", Description = "Ask Histogram color.", Order = 20, GroupName = "Visual")]
         public Brush AskSizeColor
         { get; set; }
 
@@ -1492,8 +1492,8 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
         { get; set; }
 
         [NinjaScriptProperty]
-        [Display(Name = "Bid/Ask Size Boxes", Description = "Draw bid/ask size boxes.", Order = 2, GroupName = "Bid / Ask Columns")]
-        public bool DrawBidAskSizeBoxes
+        [Display(Name = "Bid/Ask Size Histogram", Description = "Draw bid/ask size Histogram.", Order = 2, GroupName = "Bid / Ask Columns")]
+        public bool DisplayBidAskHistogram
         { get; set; }
 
         [NinjaScriptProperty]
