@@ -7,8 +7,10 @@ TraderLadder is a free order flow ladder for Ninjatrader v8. The SuperDOM column
 
 - Last trades
 - Buys / Sells in a configurable sliding time window (defaults to 60 seconds) + Imbalance detection
+- Last prints or Largest prints at price in sliding window _**(New in v0.3.3)**_
 - Session Buys / Sells + Imbalance detection
 - Bid/Ask + Bid/Ask updates
+- Bid/Ask historgram _**(New in v0.3.3)**_
 - Volume histogram
 - If in a position, Current P/L + Session P/L + Account cash value
 
@@ -19,10 +21,14 @@ This software is provided for free, including the source code for it. At some po
 Please refer to the documentation here: https://github.com/OrderFlowTools/TraderLadder/wiki
 
 ## Screenshots
-![DarkScreenShot_1](https://github.com/OrderFlowTools/TraderLadder/blob/main/.github/images/Dark_1.PNG)
-![GemsTraderLadder](https://user-images.githubusercontent.com/25984676/146658180-d1aef8cb-f6c0-4949-8427-72a0917a6108.png)
-![LightScreenShot_1](https://github.com/OrderFlowTools/TraderLadder/blob/main/.github/images/Light_1.PNG)
-![DarkScreenShot_3](https://github.com/OrderFlowTools/TraderLadder/blob/main/.github/images/Dark_3.PNG)
-![DarkScreenShot_2](https://github.com/OrderFlowTools/TraderLadder/blob/main/.github/images/Dark_2.PNG)
-![LightScreenShot_2](https://github.com/OrderFlowTools/TraderLadder/blob/main/.github/images/Light_2.PNG)
+![DarkScreenShot_1](https://github.com/OrderFlowTools/screenshots/blob/main/traderladder/v0.3.3/full.PNG)
 
+The screenshot below shows the **largest trades** that occurred at each price within the sliding window time period. 
+This information can be viewed by using SHIFT + Left-Click (left-click while holding down the Shift Key). To toggle back to the original view, simply use SHIFT + Left-Click again.
+
+![DarkScreenShot_1](https://github.com/OrderFlowTools/screenshots/blob/main/traderladder/v0.3.3/largest-trades.PNG)
+
+The screenshot below shows the **latest trades** that occurred at each price within the sliding window time period. 
+This information can be viewed by using CTRL + Left-Click (left-click while holding down the Control/CTRL Key). To toggle back to the original view, simply use CTRL + Left-Click again.
+
+![DarkScreenShot_1](https://github.com/OrderFlowTools/screenshots/blob/main/traderladder/v0.3.3/last-prints.PNG)
