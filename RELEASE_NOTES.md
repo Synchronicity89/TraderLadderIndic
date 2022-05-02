@@ -1,5 +1,8 @@
 # Release Notes
 
+## v0.3.4
+- BUG FIX: Fixed issue that was causing the ladder to suddenly stop rendering some columns.
+
 ## v0.3.3
 - Added ability to view the Largest Trades at Prices in Sliding Window (SHIFT + Left Click)
 - Added ability to view the Last Trade at Prices in Sliding Window (CTRL + Left Click)
