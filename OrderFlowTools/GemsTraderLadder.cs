@@ -462,10 +462,10 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
                 }
 
                 List<NinjaTrader.Gui.SuperDom.LadderRow> askLadder = SuperDom.MarketDepth.Asks;
-                askLadder = askLadder.Count > BidAskRows ? askLadder.GetRange(0, BidAskRows) : askLadder;
+                askLadder = new List<NinjaTrader.Gui.SuperDom.LadderRow>(askLadder.Count > BidAskRows ? askLadder.GetRange(0, BidAskRows) : askLadder);
 
                 List<NinjaTrader.Gui.SuperDom.LadderRow> bidLadder = SuperDom.MarketDepth.Bids;
-                bidLadder = bidLadder.Count > BidAskRows ? bidLadder.GetRange(0, BidAskRows) : bidLadder;
+                bidLadder = new List<NinjaTrader.Gui.SuperDom.LadderRow>(bidLadder.Count > BidAskRows ? bidLadder.GetRange(0, BidAskRows) : bidLadder);
 
                 BarsUpdateEventArgs barsUpdate = e;
                 lock (barsSync)
