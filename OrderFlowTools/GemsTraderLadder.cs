@@ -214,6 +214,7 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
                 DisplaySessionBuysSells = true;
                 DisplayOrderFlowStrengthBar = false;
                 DisplaySlidingWindowTotals = true;
+                DisplayBuySellPerc = false;
                 DisplayBidAskCumulativeChange = true;
                 
                 // Default behavior is to display cumulative buys/sells in Sliding Window.
@@ -786,7 +787,7 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
                                 dc.DrawText(text, new Point(rect.Right - 5, verticalOffset + (SuperDom.ActualRowHeight - text.Height) / 2));
                                 dc.DrawRectangle(null, highlightPen, new Rect(x - 1 , verticalOffset + halfPenWidth -1 , cellWidth, rect.Height - highlightPen.Thickness));
                             }
-                            else if (row.Price == sellTotalsPrice && sellTotal > 0 && sellTotal > buyTotal) {
+                            else if (DisplayBuySellPerc && row.Price == sellTotalsPrice && sellTotal > 0 && sellTotal > buyTotal) {
                                 // Write strength percentage if Sell side is stronger
                                 double perc = (sellTotal-buyTotal)/sellTotal;
                                 if (perc > TotalsPercThreshold) {
@@ -810,7 +811,7 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
                                 dc.DrawText(text, new Point(rect.Right - 5, verticalOffset + (SuperDom.ActualRowHeight - text.Height) / 2));
                                 dc.DrawRectangle(null, highlightPen, new Rect(x - 1, verticalOffset + halfPenWidth - 1, cellWidth, rect.Height - highlightPen.Thickness));
                             }
-                            else if (row.Price == buyTotalsPrice && buyTotal > 0 && buyTotal > sellTotal) {
+                            else if (DisplayBuySellPerc && row.Price == buyTotalsPrice && buyTotal > 0 && buyTotal > sellTotal) {
                                 // Write strength percentage if Buy side is stronger
                                 double perc = (buyTotal - sellTotal)/buyTotal;
                                 if (perc > TotalsPercThreshold) {
@@ -1294,6 +1295,11 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
         [NinjaScriptProperty]
         [Display(Name = "Sliding Window Totals", Description = "Display Sliding Window Totals.", Order = 5, GroupName = "Buy / Sell Columns")]
         public bool DisplaySlidingWindowTotals
+        { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Sliding Window Totals %", Description = "Display Buy/Sell % (Strong side).", Order = 6, GroupName = "Buy / Sell Columns")]
+        public bool DisplayBuySellPerc
         { get; set; }
 
 
