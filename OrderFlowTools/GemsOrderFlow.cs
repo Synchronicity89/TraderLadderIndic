@@ -11,6 +11,7 @@ using System.Text;
 using System.Threading.Tasks;
 using NinjaTrader.NinjaScript.Indicators;
 using NinjaTrader.Gui.SuperDom;
+using System.Runtime.Caching;
 
 namespace Gemify.OrderFlow
 {
@@ -49,8 +50,8 @@ namespace Gemify.OrderFlow
     {
         internal double Perc { get; set; }
     }
-	
-	enum TradeAggressor
+
+    enum TradeAggressor
     {
         BUYER,
         SELLER
@@ -60,32 +61,41 @@ namespace Gemify.OrderFlow
     {
         COMBINED,
         IMBALANCE,
-        BUY_SELL
+        BUY_SELL,
+        LEVEL2
     }
 
     class GemsOrderFlow
     {
 
+        private bool DEBUG = true;
+
         protected ITradeClassifier tradeClassifier;
 
         private ConcurrentDictionary<double, Trade> SlidingWindowBuys;
         private ConcurrentDictionary<double, Trade> SlidingWindowSells;
-        private ConcurrentDictionary<double, BidAsk> CumulativeBids;
-        private ConcurrentDictionary<double, BidAsk> CumulativeAsks;        
+        private ConcurrentDictionary<double, long> TotalBuys;
+        private ConcurrentDictionary<double, long> TotalSells;
+
         private ConcurrentDictionary<double, long> LastBuy;
         private ConcurrentDictionary<double, long> LastSell;
-        private ConcurrentDictionary<double, BidAskPerc> BidsPerc;
-        private ConcurrentDictionary<double, BidAskPerc> AsksPerc;        
         private ConcurrentDictionary<double, long> LastBuyPrint;
         private ConcurrentDictionary<double, long> LastSellPrint;
         private ConcurrentDictionary<double, long> LastBuyPrintMax;
-        private ConcurrentDictionary<double, long> LastSellPrintMax;        
+        private ConcurrentDictionary<double, long> LastSellPrintMax;
 
-        private ConcurrentDictionary<double, long> TotalBuys;
-        private ConcurrentDictionary<double, long> TotalSells;
-        private ConcurrentDictionary<double, long> PrevBid;
-        private ConcurrentDictionary<double, long> PrevAsk;
-        
+
+        private ConcurrentDictionary<double, BidAsk> CurrBid;
+        private ConcurrentDictionary<double, BidAsk> CurrAsk;
+        private ConcurrentDictionary<double, BidAsk> PrevBid;
+        private ConcurrentDictionary<double, BidAsk> PrevAsk;
+        private ConcurrentDictionary<double, long> BidChange;
+        private ConcurrentDictionary<double, long> AskChange;
+        private ConcurrentDictionary<double, BidAsk> CumulativeBids;
+        private ConcurrentDictionary<double, BidAsk> CumulativeAsks;
+        private ConcurrentDictionary<double, BidAskPerc> BidsPerc;
+        private ConcurrentDictionary<double, BidAskPerc> AsksPerc;
+
         private double imbalanceFactor;
         private long imbalanceInvalidateDistance;
         private const int minSlidingWindowTrades = 1;
@@ -93,7 +103,7 @@ namespace Gemify.OrderFlow
         // To support Print
         private Indicator ind;
 
-        public GemsOrderFlow (ITradeClassifier tradeClassifier, double imbalanceFactor)
+        public GemsOrderFlow(ITradeClassifier tradeClassifier, double imbalanceFactor)
         {
             ind = new Indicator();
 
@@ -104,9 +114,6 @@ namespace Gemify.OrderFlow
 
             SlidingWindowBuys = new ConcurrentDictionary<double, Trade>();
             SlidingWindowSells = new ConcurrentDictionary<double, Trade>();
-            CumulativeBids = new ConcurrentDictionary<double, BidAsk>();
-            CumulativeAsks = new ConcurrentDictionary<double, BidAsk>();
-
             TotalBuys = new ConcurrentDictionary<double, long>();
             TotalSells = new ConcurrentDictionary<double, long>();
 
@@ -116,8 +123,15 @@ namespace Gemify.OrderFlow
             LastSellPrint = new ConcurrentDictionary<double, long>();
             LastBuyPrintMax = new ConcurrentDictionary<double, long>();
             LastSellPrintMax = new ConcurrentDictionary<double, long>();
-            PrevAsk = new ConcurrentDictionary<double, long>();
-            PrevBid = new ConcurrentDictionary<double, long>();
+
+            CurrAsk = new ConcurrentDictionary<double, BidAsk>();
+            CurrBid = new ConcurrentDictionary<double, BidAsk>();
+            PrevAsk = new ConcurrentDictionary<double, BidAsk>();
+            PrevBid = new ConcurrentDictionary<double, BidAsk>();
+            AskChange = new ConcurrentDictionary<double, long>();
+            BidChange = new ConcurrentDictionary<double, long>();
+            CumulativeBids = new ConcurrentDictionary<double, BidAsk>();
+            CumulativeAsks = new ConcurrentDictionary<double, BidAsk>();
             BidsPerc = new ConcurrentDictionary<double, BidAskPerc>();
             AsksPerc = new ConcurrentDictionary<double, BidAskPerc>();
         }
@@ -132,7 +146,10 @@ namespace Gemify.OrderFlow
 
             PrevBid.Clear();
             PrevAsk.Clear();
-
+            CurrBid.Clear();
+            CurrAsk.Clear();
+            BidChange.Clear();
+            AskChange.Clear();
             BidsPerc.Clear();
             AsksPerc.Clear();
         }
@@ -141,8 +158,10 @@ namespace Gemify.OrderFlow
         {
             SlidingWindowBuys.Clear();
             SlidingWindowSells.Clear();
+
             CumulativeBids.Clear();
-            CumulativeAsks.Clear();         
+            CumulativeAsks.Clear();
+
             LastBuy.Clear();
             LastSell.Clear();
             LastBuyPrint.Clear();
@@ -154,6 +173,102 @@ namespace Gemify.OrderFlow
         private void Print(string s)
         {
             ind.Print(s);
+        }
+
+        internal void SetBidLadder(List<LadderRow> newBidLadder)
+        {
+            try
+            {
+                PrevBid = new ConcurrentDictionary<double, BidAsk>(CurrBid);
+                CurrBid.Clear();
+                if (newBidLadder != null)
+                {
+                    foreach (LadderRow row in newBidLadder)
+                    {
+                        BidAsk entry = new BidAsk(row.Volume, row.Time);
+                        if (CurrBid != null) CurrBid.TryAdd(row.Price, entry);
+                        else Print("SetBidLadder: WTH?? This is not supposed to happen.");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Print(ex.ToString());
+            }
+        }
+
+        internal void SetAskLadder(List<LadderRow> newAskLadder)
+        {
+            try
+            {
+                PrevAsk = new ConcurrentDictionary<double, BidAsk>(CurrAsk);
+                CurrAsk.Clear();
+                if (newAskLadder != null)
+                {
+                    foreach (LadderRow row in newAskLadder)
+                    {
+                        BidAsk entry = new BidAsk(row.Volume, row.Time);
+                        if (CurrAsk != null) CurrAsk.TryAdd(row.Price, entry);
+                        else Print("SetAskLadder: WTH?? This is not supposed to happen.");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Print(ex.ToString());
+            }
+        }
+
+        internal BidAsk AddOrUpdateBid(double price, long size, DateTime time)
+        {
+            // Copy current value into prev
+            BidAsk currBidAsk = null;
+            if (CurrBid.TryGetValue(price, out currBidAsk))
+            {
+                PrevBid.AddOrUpdate(price, currBidAsk, (key, existing) => currBidAsk);
+            }
+
+            // Change in bid size
+            long change = Convert.ToInt64(size - (currBidAsk == null ? 0 : currBidAsk.Size));
+            BidChange.AddOrUpdate(price, change, (key, value) => change);
+
+            // Calculate cumulative change
+            BidAsk currCumBid;
+            if (CumulativeBids.TryGetValue(price, out currCumBid))
+            {
+                double prevSize = currCumBid.Size;
+                CumulativeBids.TryUpdate(price, new BidAsk(prevSize + change, time), currCumBid);
+            }
+
+            // Add or replace current entry
+            BidAsk newBidAsk = new BidAsk(size, time);
+            return CurrBid.AddOrUpdate(price, newBidAsk, (key, existing) => newBidAsk);
+        }
+
+        internal BidAsk AddOrUpdateAsk(double price, long size, DateTime time)
+        {
+            // Copy current value into prev
+            BidAsk currBidAsk = null;
+            if (CurrAsk.TryGetValue(price, out currBidAsk))
+            {
+                PrevAsk.AddOrUpdate(price, currBidAsk, (key, existing) => currBidAsk);
+            }
+
+            // Change in ask size
+            long change = Convert.ToInt64(size - (currBidAsk == null ? 0 : currBidAsk.Size));
+            AskChange.AddOrUpdate(price, change, (key, value) => change);
+
+            // Calculate cumulative change
+            BidAsk currCumAsk;
+            if (CumulativeBids.TryGetValue(price, out currCumAsk))
+            {
+                double prevSize = currCumAsk.Size;
+                CumulativeBids.TryUpdate(price, new BidAsk(prevSize + change, time), currCumAsk);
+            }
+
+            // Add or replace current entry
+            BidAsk newBidAsk = new BidAsk(size, time);
+            return CurrAsk.AddOrUpdate(price, newBidAsk, (key, existing) => newBidAsk);
         }
 
         /*
@@ -190,7 +305,8 @@ namespace Gemify.OrderFlow
                     LastBuyPrint.AddOrUpdate(close, volume, (price, oldVolume) => volume);
                     long lastMax = 0;
                     LastBuyPrintMax.TryGetValue(close, out lastMax);
-                    if (volume > lastMax) {
+                    if (volume > lastMax)
+                    {
                         LastBuyPrintMax.AddOrUpdate(close, volume, (price, oldVolume) => volume);
                     }
                 }
@@ -222,7 +338,8 @@ namespace Gemify.OrderFlow
                     LastSellPrint.AddOrUpdate(close, volume, (price, oldVolume) => volume);
                     long lastMax = 0;
                     LastSellPrintMax.TryGetValue(close, out lastMax);
-                    if (volume > lastMax) {
+                    if (volume > lastMax)
+                    {
                         LastSellPrintMax.AddOrUpdate(close, volume, (price, oldVolume) => volume);
                     }
                 }
@@ -241,7 +358,7 @@ namespace Gemify.OrderFlow
                 total += trade.Size;
             }
             return total;
-        }        
+        }
 
         /*
         * Gets total sell volume in the sliding window
@@ -254,7 +371,7 @@ namespace Gemify.OrderFlow
                 total += trade.Size;
             }
             return total;
-        } 
+        }
 
         /*
         * Gets total buy (large) volume in the sliding window
@@ -267,7 +384,7 @@ namespace Gemify.OrderFlow
                 total += size;
             }
             return total;
-        }        
+        }
 
         /*
         * Gets total sell (large) volume in the sliding window
@@ -280,7 +397,7 @@ namespace Gemify.OrderFlow
                 total += size;
             }
             return total;
-        } 
+        }
 
         /*
         * Gets sum of current buy prints in the sliding window
@@ -293,7 +410,7 @@ namespace Gemify.OrderFlow
                 total += size;
             }
             return total;
-        }        
+        }
 
         /*
         * Gets sum of current sell prints in the sliding window
@@ -306,29 +423,33 @@ namespace Gemify.OrderFlow
                 total += size;
             }
             return total;
-        }         
+        }
 
-        internal double GetHighestBuyPriceInSlidingWindow() {
+        internal double GetHighestBuyPriceInSlidingWindow()
+        {
             IOrderedEnumerable<double> prices = SlidingWindowBuys.Keys.OrderByDescending(i => ((float)i));
             return prices.FirstOrDefault();
         }
 
-        internal double GetLowestSellPriceInSlidingWindow() {
+        internal double GetLowestSellPriceInSlidingWindow()
+        {
             IOrderedEnumerable<double> prices = SlidingWindowSells.Keys.OrderByDescending(i => ((float)i));
             return prices.LastOrDefault();
 
-        }   
+        }
 
-        internal double GetSessionHigh() {
+        internal double GetSessionHigh()
+        {
             IOrderedEnumerable<double> prices = TotalBuys.Keys.OrderByDescending(i => ((float)i));
             return prices.FirstOrDefault();
         }
 
-        internal double GetSessionLow() {
+        internal double GetSessionLow()
+        {
             IOrderedEnumerable<double> prices = TotalSells.Keys.OrderByDescending(i => ((float)i));
             return prices.LastOrDefault();
 
-        }   
+        }
 
 
         /*
@@ -348,37 +469,44 @@ namespace Gemify.OrderFlow
          * fall outside of a sliding time window (seconds), 
          * thus preserving only the latest cumulative bid/ask based on the time window.
          */
-        internal void ClearCumulativeBidAsksOutsideSlidingWindow(DateTime time, int TradeSlidingWindowSeconds, int maxBidAskRows, double currentBid, double currentAsk, double upperCutOff, double lowerCutOff)
+        internal void ClearCumulativeBidAsksOutsideSlidingWindow(DateTime time, int TradeSlidingWindowSeconds, int maxBidAskRows, double currentBidPrice, double currentAskPrice, double upperCutOff, double lowerCutOff)
         {
-            // Remove cumulative bids 
-            foreach (double price in CumulativeBids.Keys)
+            try
             {
-                BidAsk bidAsk;
-                bool gotItem = CumulativeBids.TryGetValue(price, out bidAsk);
-                if (gotItem)
+                // Remove cumulative bids 
+                foreach (double price in CumulativeBids.Keys)
                 {
-                    TimeSpan diff = time - bidAsk.Time;
-                    if (diff.TotalSeconds > TradeSlidingWindowSeconds || price > currentBid || price < lowerCutOff)
+                    BidAsk bidAsk;
+                    bool gotItem = CumulativeBids.TryGetValue(price, out bidAsk);
+                    if (gotItem)
                     {
-                        CumulativeBids.TryRemove(price, out bidAsk);
+                        TimeSpan diff = time - bidAsk.Time;
+                        if (diff.TotalSeconds > TradeSlidingWindowSeconds || price > currentBidPrice || price < lowerCutOff)
+                        {
+                            CumulativeBids.TryRemove(price, out bidAsk);
+                        }
+                    }
+                }
+
+                // Remove cumulative asks 
+                foreach (double price in CumulativeAsks.Keys)
+                {
+                    BidAsk bidAsk;
+                    bool gotItem = CumulativeAsks.TryGetValue(price, out bidAsk);
+                    if (gotItem)
+                    {
+                        TimeSpan diff = time - bidAsk.Time;
+                        if (diff.TotalSeconds > TradeSlidingWindowSeconds || price < currentAskPrice || price > upperCutOff)
+                        {
+                            BidAsk removeThis;
+                            CumulativeAsks.TryRemove(price, out removeThis);
+                        }
                     }
                 }
             }
-
-            // Remove cumulative asks 
-            foreach (double price in CumulativeAsks.Keys)
+            catch (Exception e)
             {
-                BidAsk bidAsk;
-                bool gotItem = CumulativeAsks.TryGetValue(price, out bidAsk);
-                if (gotItem)
-                {
-                    TimeSpan diff = time - bidAsk.Time;
-                    if (diff.TotalSeconds > TradeSlidingWindowSeconds || price < currentAsk || price > upperCutOff)
-                    {
-                        BidAsk removeThis;
-                        CumulativeAsks.TryRemove(price, out removeThis);
-                    }
-                }
+                Print("An error occurred. Please report this bug. Thanks for your help." + e.ToString());
             }
         }
 
@@ -480,13 +608,15 @@ namespace Gemify.OrderFlow
             return sellImbalance;
         }
 
-        internal BidAskPerc GetBidPerc (double price) {
+        internal BidAskPerc GetBidPerc(double price)
+        {
             BidAskPerc bidAskPerc = null;
             this.BidsPerc.TryGetValue(price, out bidAskPerc);
             return bidAskPerc;
         }
 
-        internal BidAskPerc GetAskPerc (double price) {
+        internal BidAskPerc GetAskPerc(double price)
+        {
             BidAskPerc bidAskPerc = null;
             this.AsksPerc.TryGetValue(price, out bidAskPerc);
             return bidAskPerc;
@@ -496,41 +626,81 @@ namespace Gemify.OrderFlow
         {
             OFStrength orderFlowStrength = new OFStrength();
 
-            // Short-circuit if there's not enough data
-            if ((SlidingWindowBuys.Count + SlidingWindowSells.Count) < minSlidingWindowTrades) {
-                return orderFlowStrength;
-            }
-
-            long buyImbalance = 0, sellImbalance = 0, totalImbalance = 0, buysInSlidingWindow = 0, sellsInSlidingWindow = 0, totalVolume = 0;
-
-            if (mode == OFSCalculationMode.COMBINED || mode == OFSCalculationMode.IMBALANCE) {
-                // Imbalance data
-                buyImbalance = GetImbalancedBuys(price, tickSize);
-                sellImbalance = GetImbalancedSells(price, tickSize);
-
-                if (buyImbalance + sellImbalance == 0)
+            try
+            {
+                // Short-circuit if there's not enough data
+                if ((SlidingWindowBuys.Count + SlidingWindowSells.Count) < minSlidingWindowTrades)
                 {
-                    buyImbalance = sellImbalance = 1;
+                    Print("Less than min trades in sliding window");
+                    return orderFlowStrength;
                 }
 
-                totalImbalance = buyImbalance + sellImbalance;
-            }
+                long buyImbalance = 0, sellImbalance = 0, totalImbalance = 0, buysInSlidingWindow = 0, sellsInSlidingWindow = 0, totalVolume = 0;
 
-            if (mode == OFSCalculationMode.COMBINED || mode == OFSCalculationMode.BUY_SELL) {
-                // Buy/Sell data in sliding window
-                buysInSlidingWindow = GetBuysInSlidingWindow();
-                sellsInSlidingWindow = GetSellsInSlidingWindow();
-
-                if (buysInSlidingWindow + sellsInSlidingWindow == 0)
+                if (mode == OFSCalculationMode.COMBINED || mode == OFSCalculationMode.IMBALANCE || mode == OFSCalculationMode.LEVEL2)
                 {
-                    buysInSlidingWindow = sellsInSlidingWindow = 1;
+                    // Imbalance data
+                    buyImbalance = GetImbalancedBuys(price, tickSize);
+                    sellImbalance = GetImbalancedSells(price, tickSize);
+
+                    if (buyImbalance + sellImbalance == 0)
+                    {
+                        buyImbalance = sellImbalance = 1;
+                    }
+
+                    totalImbalance = buyImbalance + sellImbalance;
                 }
 
-                totalVolume = sellsInSlidingWindow + buysInSlidingWindow;
-            }
+                if (mode == OFSCalculationMode.COMBINED || mode == OFSCalculationMode.BUY_SELL)
+                {
+                    // Buy/Sell data in sliding window
+                    buysInSlidingWindow = GetBuysInSlidingWindow();
+                    sellsInSlidingWindow = GetSellsInSlidingWindow();
 
-            orderFlowStrength.buyStrength = (Convert.ToDouble(buysInSlidingWindow + buyImbalance) / Convert.ToDouble(totalVolume + totalImbalance)) * 100.00;
-            orderFlowStrength.sellStrength = (Convert.ToDouble(sellsInSlidingWindow + sellImbalance) / Convert.ToDouble(totalVolume + totalImbalance)) * 100.8;
+                    if (buysInSlidingWindow + sellsInSlidingWindow == 0)
+                    {
+                        buysInSlidingWindow = sellsInSlidingWindow = 1;
+                    }
+
+                    totalVolume = sellsInSlidingWindow + buysInSlidingWindow;
+                }
+
+                if (mode == OFSCalculationMode.LEVEL2)
+                {
+                    double cumulativeBidChange = GetTotalCumulativeBidChanges();
+                    double cumulativeAskChange = GetTotalCumulativeBidChanges();
+                    double totalChanges = cumulativeAskChange + cumulativeBidChange;
+
+                    bool allPositiveBidChanges = isAllBidChangesPositive();
+                    bool allPositiveAskChanges = isAllAskChangesPositive();
+
+                    bool allNegativeBidChanges = isAllBidChangesNegative();
+                    bool allNegativeAskChanges = isAllAskChangesNegative();
+
+                    orderFlowStrength.buyStrength = 0;
+                    orderFlowStrength.sellStrength = 0;
+
+                    if ((allPositiveAskChanges || allNegativeBidChanges) && sellImbalance > buyImbalance)
+                    {
+                        Print("L2 Sell");
+                        orderFlowStrength.sellStrength = 100;
+                    }
+                    else if ((allPositiveBidChanges || allNegativeAskChanges) && buyImbalance > sellImbalance)
+                    {
+                        Print("L2 Buy");
+                        orderFlowStrength.buyStrength = 100;
+                    }
+                }
+                else
+                {
+                    orderFlowStrength.buyStrength = (Convert.ToDouble(buysInSlidingWindow + buyImbalance) / Convert.ToDouble(totalVolume + totalImbalance)) * 100.00;
+                    orderFlowStrength.sellStrength = (Convert.ToDouble(sellsInSlidingWindow + sellImbalance) / Convert.ToDouble(totalVolume + totalImbalance)) * 100.00;
+                }
+            }
+            catch (Exception e)
+            {
+                Print("An error occurred. Please report this bug. Thanks for your help." + e.ToString());
+            }
 
             return orderFlowStrength;
         }
@@ -542,85 +712,82 @@ namespace Gemify.OrderFlow
             return volume;
         }
 
-        internal void UpdateBidAskData(List<LadderRow> askLadder, List<LadderRow> bidLadder)
+        internal void CalculateCumulativeBidAsk()
         {
-            AsksPerc.Clear();
-            BidsPerc.Clear();
-
-            double bidAskTotalVolume = CalculateBidAskTotalVolume(askLadder, bidLadder);
-
-            foreach (NinjaTrader.Gui.SuperDom.LadderRow row in askLadder)
+            try
             {
-                // Calculate cumulative ask
-                long change = GetAskChange(row.Price, row.Volume);
-                if (change != 0)
+                AsksPerc.Clear();
+                BidsPerc.Clear();
+
+                // Calculate Total Bid/Ask Sizes (for histogram drawing)
+                double bidAskTotalVolume = CalculateBidAskTotalVolume();
+
+                foreach (double price in CurrAsk.Keys)
                 {
-                    double prevSize = 0;
-                    BidAsk existing;
-                    bool gotValue = CumulativeAsks.TryGetValue(row.Price, out existing);
-                    if (gotValue)
+                    BidAsk currentAsk;
+                    if (!CurrAsk.TryGetValue(price, out currentAsk)) continue;
+
+                    // Calculate cumulative ask
+                    long change = GetAskChange(price);
+                    if (change != 0)
                     {
-                        prevSize = existing.Size;
-                        BidAsk removeThis = null;
-                        CumulativeAsks.TryRemove(row.Price, out removeThis);
+                        // Get previous cumulative ask, if it exists
+                        BidAsk existing;
+                        CumulativeAsks.TryGetValue(price, out existing);
+
+                        // Replace with new cumulative value
+                        BidAsk newBidAsk = new BidAsk(change + (existing == null ? 0 : existing.Size), currentAsk.Time);
+                        CumulativeAsks.AddOrUpdate(price, newBidAsk, (key, oldBidAsk) => newBidAsk);
                     }
 
-                    BidAsk bidAsk = new BidAsk();
-                    bidAsk.Size = prevSize + change;
-                    bidAsk.Time = row.Time;
-                    CumulativeAsks.TryAdd(row.Price, bidAsk);
-
+                    // Calculate percentage of current ask volume relative to total bid/ask volume
+                    BidAskPerc perc = new BidAskPerc();
+                    perc.Size = currentAsk.Size;
+                    perc.Perc = currentAsk.Size / bidAskTotalVolume;
+                    AsksPerc.AddOrUpdate(price, perc, (key, existing) => existing = perc);
                 }
 
-                // Calculate percentage of current ask volume relative to total bid/ask volume
-                BidAskPerc perc = new BidAskPerc();
-                perc.Size = row.Volume;
-                perc.Perc = row.Volume / bidAskTotalVolume;
-                AsksPerc.AddOrUpdate(row.Price, perc, (price, existing) => existing = perc);
+                foreach (double price in CurrBid.Keys)
+                {
+                    BidAsk currentBid;
+                    if (!CurrBid.TryGetValue(price, out currentBid)) continue;
+
+                    // Calculate cumulative bid
+                    long change = GetBidChange(price);
+                    if (change != 0)
+                    {
+                        // Get previous cumulative bid, if it exists
+                        BidAsk existing;
+                        CumulativeBids.TryGetValue(price, out existing);
+
+                        // Replace with new cumulative value
+                        BidAsk newBidAsk = new BidAsk(change + (existing == null ? 0 : existing.Size), currentBid.Time);
+                        CumulativeBids.AddOrUpdate(price, newBidAsk, (key, oldBidAsk) => newBidAsk);
+                    }
+
+                    // Calculate percentage of current bid volume relative to total bid/ask volume
+                    BidAskPerc perc = new BidAskPerc();
+                    perc.Size = currentBid.Size;
+                    perc.Perc = currentBid.Size / bidAskTotalVolume;
+                    BidsPerc.AddOrUpdate(price, perc, (key, existing) => existing = perc);
+                }
             }
-
-            foreach (NinjaTrader.Gui.SuperDom.LadderRow row in bidLadder)
+            catch (Exception e)
             {
-                // Calculate cumulative bid
-                long change = GetBidChange(row.Price, row.Volume);
-                if (change != 0)
-                {
-                    double prevSize = 0;
-                    BidAsk existing;
-                    bool gotValue = CumulativeBids.TryGetValue(row.Price, out existing);
-                    if (gotValue)
-                    {
-                        prevSize = existing.Size;
-                        BidAsk removeThis = null;
-                        CumulativeBids.TryRemove(row.Price, out removeThis);
-                    }
-
-                    BidAsk bidAsk = new BidAsk();
-                    bidAsk.Size = prevSize + change;
-                    bidAsk.Time = row.Time;
-                    CumulativeBids.TryAdd(row.Price, bidAsk);
-
-                }
-
-
-                // Calculate percentage of current bid volume relative to total bid/ask volume
-                BidAskPerc perc = new BidAskPerc();
-                perc.Size = row.Volume;
-                perc.Perc = row.Volume / bidAskTotalVolume;
-                BidsPerc.AddOrUpdate(row.Price, perc, (price, existing) => existing = perc);
+                Print("An error occurred. Please report this bug. Thanks for your help." + e.ToString());
             }
         }
 
-        private static double CalculateBidAskTotalVolume(List<LadderRow> askLadder, List<LadderRow> bidLadder)
+        private double CalculateBidAskTotalVolume()
         {
             double maxBidAsk = 0;
-            foreach (NinjaTrader.Gui.SuperDom.LadderRow row in askLadder)
+            foreach (BidAsk bidAsk in CurrAsk.Values)
             {
-                maxBidAsk = row.Volume > maxBidAsk ? row.Volume : maxBidAsk;
+                maxBidAsk = bidAsk.Size > maxBidAsk ? bidAsk.Size : maxBidAsk;
             }
-            foreach (NinjaTrader.Gui.SuperDom.LadderRow row in bidLadder)
+            foreach (BidAsk bidAsk in CurrBid.Values)
             {
-                maxBidAsk = row.Volume > maxBidAsk ? row.Volume : maxBidAsk;
+                maxBidAsk = bidAsk.Size > maxBidAsk ? bidAsk.Size : maxBidAsk;
             }
 
             return maxBidAsk;
@@ -633,54 +800,19 @@ namespace Gemify.OrderFlow
             return volume;
         }
 
-        internal long GetAskChange(double price, long currentSize)
+        internal long GetAskChange(double price)
         {
-            long change = 0;
-            long prevSize = 0;
-            bool gotPrevAsk = PrevAsk.TryGetValue(price, out prevSize);
 
-            // Replace with current size
-            if (currentSize > 0)
-            {
-                // Clear out old size
-                long old;
-                PrevAsk.TryRemove(price, out old);
-
-                PrevAsk.TryAdd(price, currentSize);
-            }
-
-            if (gotPrevAsk)
-            {
-                change = currentSize - prevSize;
-
-            }
-
-            return change;
+            long currentSize = GetAsk(price);
+            long prevSize = GetPrevAsk(price);
+            return (prevSize > 0 && currentSize > 0) ? (currentSize - prevSize) : 0;
         }
 
-        internal long GetBidChange(double price, long currentSize)
+        internal long GetBidChange(double price)
         {
-            long change = 0;
-            long prevSize = 0;
-            bool gotPrevBid = PrevBid.TryGetValue(price, out prevSize);
-
-            // Replace with current size
-            if (currentSize > 0)
-            {
-                // Clear out old size
-                long old;
-                PrevBid.TryRemove(price, out old);
-
-                PrevBid.TryAdd(price, currentSize);
-            }
-
-            if (gotPrevBid)
-            {
-                change = currentSize - prevSize;
-
-            }
-
-            return change;
+            long currentSize = GetBid(price);
+            long prevSize = GetPrevBid(price);
+            return (prevSize > 0 && currentSize > 0) ? (currentSize - prevSize) : 0;
         }
 
         internal Trade GetBuysInSlidingWindow(double price)
@@ -709,7 +841,7 @@ namespace Gemify.OrderFlow
             BidAsk item = null;
             CumulativeAsks.TryGetValue(price, out item);
             return item;
-        }               
+        }
 
         internal long GetLastBuySize(double price)
         {
@@ -737,7 +869,7 @@ namespace Gemify.OrderFlow
             long lastSize = 0;
             LastSellPrint.TryGetValue(price, out lastSize);
             return lastSize;
-        }  
+        }
 
         internal long GetLastBuyPrintMax(double price)
         {
@@ -751,7 +883,7 @@ namespace Gemify.OrderFlow
             long lastSize = 0;
             LastSellPrintMax.TryGetValue(price, out lastSize);
             return lastSize;
-        }               
+        }
 
         internal void RemoveLastBuy(double price)
         {
@@ -762,7 +894,154 @@ namespace Gemify.OrderFlow
         internal void RemoveLastSell(double price)
         {
             long lastSize;
-            LastSell.TryRemove(price, out lastSize); 
+            LastSell.TryRemove(price, out lastSize);
+        }
+
+
+        /*
+        * Gets sum of cumulative bid changes in the sliding window
+        */
+        internal long GetTotalCumulativeBidChanges()
+        {
+            double total = 0;
+            foreach (BidAsk bidAsk in CumulativeBids.Values)
+            {
+                total += bidAsk.Size;
+            }
+            return Convert.ToInt64(total);
+        }
+
+        /*
+        * Gets sum of cumulative ask changes in the sliding window
+        */
+        internal long GetTotalCumulativeAskChanges()
+        {
+            double total = 0;
+            foreach (BidAsk bidAsk in CumulativeAsks.Values)
+            {
+                total += bidAsk.Size;
+            }
+            return Convert.ToInt64(total);
+        }
+
+        /*
+         * Checks if all cumulative bid changes in the sliding window are positive
+         */
+        internal bool isAllBidChangesPositive()
+        {
+            bool isPositive = true;
+            foreach (BidAsk bidAsk in CumulativeBids.Values)
+            {
+                isPositive &= bidAsk.Size >= 0;
+            }
+            return isPositive;
+        }
+
+        /*
+         * Checks if all cumulative ask changes in the sliding window are positive
+         */
+        internal bool isAllAskChangesPositive()
+        {
+            bool isPositive = true;
+            foreach (BidAsk bidAsk in CumulativeAsks.Values)
+            {
+                isPositive &= bidAsk.Size >= 0;
+            }
+            return isPositive;
+        }
+
+        /*
+         * Checks if all cumulative bid changes in the sliding window are negative
+         */
+        internal bool isAllBidChangesNegative()
+        {
+            bool isNegative = true;
+            foreach (BidAsk bidAsk in CumulativeBids.Values)
+            {
+                isNegative &= bidAsk.Size <= 0;
+            }
+            return isNegative;
+        }
+
+        /*
+         * Checks if all cumulative ask changes in the sliding window are negative
+         */
+        internal bool isAllAskChangesNegative()
+        {
+            bool isNegative = true;
+            foreach (BidAsk bidAsk in CumulativeAsks.Values)
+            {
+                isNegative &= bidAsk.Size <= 0;
+            }
+            return isNegative;
+        }
+
+        internal long GetBid(double price)
+        {
+            try
+            {
+                BidAsk entry;
+                if (CurrBid.TryGetValue(price, out entry))
+                {
+                    return Convert.ToInt64(entry.Size);
+                }
+            }
+            catch (Exception e)
+            {
+                Print("An error occurred. Please report this bug. Thanks for your help." + e.ToString());
+            }
+            return 0;
+        }
+
+        internal long GetAsk(double price)
+        {
+            try
+            {
+                BidAsk entry;
+                if (CurrAsk.TryGetValue(price, out entry))
+                {
+                    return Convert.ToInt64(entry.Size);
+                }
+            }
+            catch (Exception e)
+            {
+                Print("An error occurred. Please report this bug. Thanks for your help." + e.ToString());
+            }
+            return 0;
+        }
+
+        internal long GetPrevBid(double price)
+        {
+            try
+            {
+                BidAsk entry;
+                if (PrevBid.TryGetValue(price, out entry))
+                {
+                    return Convert.ToInt64(entry.Size);
+                }
+            }
+            catch (Exception e)
+            {
+                Print("An error occurred. Please report this bug. Thanks for your help." + e.ToString());
+            }
+            return 0;
+        }
+
+        internal long GetPrevAsk(double price)
+        {
+            try
+            {
+                BidAsk entry;
+                if (PrevAsk.TryGetValue(price, out entry))
+                {
+                    return Convert.ToInt64(entry.Size);
+                }
+            }
+            catch (Exception e)
+            {
+                Print("An error occurred. Please report this bug. Thanks for your help." + e.ToString());
+            }
+            return 0;
         }
     }
 }

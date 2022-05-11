@@ -24,11 +24,11 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
 {
     public class GemsTraderLadder : SuperDomColumn
     {
-		public enum PLType
-	    {
-	        Ticks,
-	        Currency
-	    }
+        public enum PLType
+        {
+            Ticks,
+            Currency
+        }
 
         class ColumnDefinition
         {
@@ -48,44 +48,44 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
             {
                 Text = Calculate(renderWidth, price);
             }
-        }        
+        }
 
         enum ColumnType
         {
             [Description("Volume")]
-            VOLUME, 
+            VOLUME,
             [Description("Acc Val")]
-            ACCVAL, 
+            ACCVAL,
             [Description("Sess P/L")]
-            TOTALPL, 
+            TOTALPL,
             [Description("P/L")]
-            PL, 
+            PL,
             [Description("Price")]
             PRICE,
             [Description("Sells")]
             SELLS,
             [Description("Buys")]
-            BUYS, 
+            BUYS,
             [Description("Last")]
-            SELL_SIZE, 
+            SELL_SIZE,
             [Description("Last")]
-            BUY_SIZE, 
+            BUY_SIZE,
             [Description("Sess Sells")]
-            TOTAL_SELLS, 
+            TOTAL_SELLS,
             [Description("Sess Buys")]
-            TOTAL_BUYS, 
+            TOTAL_BUYS,
             [Description("Bid")]
-            BID, 
+            BID,
             [Description("Ask")]
-            ASK, 
+            ASK,
             [Description("+/-")]
-            BID_CHANGE, 
+            BID_CHANGE,
             [Description("+/-")]
-            ASK_CHANGE, 
+            ASK_CHANGE,
             [Description("Σ+/-")]
-            CUMULATIVE_ASK_IN_WINDOW, 
+            CUMULATIVE_ASK_IN_WINDOW,
             [Description("Σ+/-")]
-            CUMULATIVE_BID_IN_WINDOW, 
+            CUMULATIVE_BID_IN_WINDOW,
             [Description(" ")]
             OF_STRENGTH
         }
@@ -93,7 +93,7 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
         enum ColumnSize
         {
             XSMALL, SMALL, MEDIUM, LARGE, XLARGE
-        }         
+        }
 
         #region Variable Decls
         // VERSION
@@ -119,6 +119,7 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
         private readonly double ImbalanceInvalidationThreshold = 5;
         private string tradingHoursData = TradingHours.UseInstrumentSettings;
         private bool mouseEventsSubscribed;
+        private bool marketDepthSubscribed;
         private int lastMaxIndex = -1;
 
         // Orderflow variables
@@ -127,7 +128,10 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
         private double TotalsPercThreshold = 0.01; // 1 %
 
         // Volume profile variables
+        private long totalVolume = 0;
         private double VPOC = 0;
+        private double VAH = 0;
+        private double VAL = 0;
 
         private double commissionRT = 0.00;
 
@@ -184,7 +188,7 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
                 LastTradeColor = Brushes.White;
                 DefaultBackgroundColor = Application.Current.TryFindResource("brushPriceColumnBackground") as SolidColorBrush;
                 CurrentPriceRowColor = HeaderRowColor = Application.Current.TryFindResource("GridRowHighlight") as LinearGradientBrush;
-                HeadersTextColor = Application.Current.TryFindResource("FontControlBrush") as SolidColorBrush; 
+                HeadersTextColor = Application.Current.TryFindResource("FontControlBrush") as SolidColorBrush;
 
                 SellColumnColor = new SolidColorBrush(Color.FromRgb(40, 15, 15));
                 AskColumnColor = new SolidColorBrush(Color.FromRgb(30, 15, 15));
@@ -192,12 +196,12 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
                 BuyColumnColor = new SolidColorBrush(Color.FromRgb(15, 15, 30));
                 BidColumnColor = new SolidColorBrush(Color.FromRgb(20, 20, 30));
 
-                BidSizeColor = Brushes.MediumBlue; 
+                BidSizeColor = Brushes.MediumBlue;
                 AskSizeColor = Brushes.Firebrick;
 
                 HighlightColor = DefaultTextColor;
 
-                VPOCColor = Brushes.Blue; 
+                VPOCColor = Brushes.Blue;
                 NonVAColor = new SolidColorBrush(Brushes.DimGray.Color) { Opacity = 0.25 };
 
                 DisplayVolume = true;
@@ -216,7 +220,7 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
                 DisplaySlidingWindowTotals = true;
                 DisplayBuySellPerc = false;
                 DisplayBidAskCumulativeChange = true;
-                
+
                 // Default behavior is to display cumulative buys/sells in Sliding Window.
                 // This can be toggled - ie, display last size at price instead of cumulative buy/sell.
                 SlidingWindowLastOnly = false;
@@ -239,7 +243,7 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
                 if (DisplaySessionBuysSells)
                     columns.Add(new ColumnDefinition(ColumnType.TOTAL_SELLS, ColumnSize.MEDIUM, DefaultBackgroundColor, GenerateSessionSellsText));
                 if (DisplayBidAskCumulativeChange)
-                    columns.Add(new ColumnDefinition(ColumnType.CUMULATIVE_BID_IN_WINDOW, ColumnSize.SMALL, DefaultBackgroundColor, GenerateCumulativeBidText));
+                    columns.Add(new ColumnDefinition(ColumnType.CUMULATIVE_BID_IN_WINDOW, ColumnSize.MEDIUM, DefaultBackgroundColor, GenerateCumulativeBidText));
                 if (DisplayBidAskChange)
                     columns.Add(new ColumnDefinition(ColumnType.BID_CHANGE, ColumnSize.SMALL, DefaultBackgroundColor, GenerateBidChangeText));
                 if (DisplayBidAsk)
@@ -258,7 +262,7 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
                 if (DisplayBidAskChange)
                     columns.Add(new ColumnDefinition(ColumnType.ASK_CHANGE, ColumnSize.SMALL, DefaultBackgroundColor, GenerateAskChangeText));
                 if (DisplayBidAskCumulativeChange)
-                    columns.Add(new ColumnDefinition(ColumnType.CUMULATIVE_ASK_IN_WINDOW, ColumnSize.SMALL, DefaultBackgroundColor, GenerateCumulativeAskText));                    
+                    columns.Add(new ColumnDefinition(ColumnType.CUMULATIVE_ASK_IN_WINDOW, ColumnSize.MEDIUM, DefaultBackgroundColor, GenerateCumulativeAskText));
                 if (DisplaySessionBuysSells)
                     columns.Add(new ColumnDefinition(ColumnType.TOTAL_BUYS, ColumnSize.MEDIUM, DefaultBackgroundColor, GenerateSessionBuysText));
 
@@ -268,7 +272,11 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
                     columns.Add(new ColumnDefinition(ColumnType.ACCVAL, ColumnSize.LARGE, DefaultBackgroundColor, CalculateAccValue));
 
                 if (DisplayOrderFlowStrengthBar)
-                    columns.Add(new ColumnDefinition(ColumnType.OF_STRENGTH, ColumnSize.SMALL, DefaultBackgroundColor, CalculateOFStrength));
+                {
+                    // columns.Add(new ColumnDefinition(ColumnType.OF_STRENGTH, ColumnSize.SMALL, DefaultBackgroundColor, CalculateOFStrength));
+                    columns.Add(new ColumnDefinition(ColumnType.OF_STRENGTH, ColumnSize.SMALL, DefaultBackgroundColor, CalculateOFStrengthImbalance));
+                    columns.Add(new ColumnDefinition(ColumnType.OF_STRENGTH, ColumnSize.SMALL, DefaultBackgroundColor, CalculateOFStrengthLevelII));
+                }
 
                 #endregion
 
@@ -295,6 +303,20 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
                         BarsPeriodType = BarsPeriodType.Tick,
                         Value = 1
                     };
+
+                    //BarsPeriod l2Bid = new BarsPeriod
+                    //{
+                    //    MarketDataType = MarketDataType.Bid,
+                    //    BarsPeriodType = BarsPeriodType.Tick,
+                    //    Value = 1
+                    //};
+
+                    //BarsPeriod l2Ask = new BarsPeriod
+                    //{
+                    //    MarketDataType = MarketDataType.Ask,
+                    //    BarsPeriodType = BarsPeriodType.Tick,
+                    //    Value = 1
+                    //};
 
                     SuperDom.Dispatcher.InvokeAsync(() => SuperDom.SetLoadingString());
                     clearLoadingSent = false;
@@ -362,7 +384,7 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
 
                             if (superDomSessionIt.IsInSession(Cbi.Connection.PlaybackConnection != null ? Cbi.Connection.PlaybackConnection.Now : Core.Globals.Now, includesEndTimeStamp, request.Bars.BarsType.IsIntraday))
                             {
-
+                                totalVolume = 0;
                                 for (int i = 0; i < request.Bars.Count; i++)
                                 {
                                     DateTime time = request.Bars.BarsSeries.GetTime(i);
@@ -370,8 +392,8 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
                                         continue;
 
                                     // Get our datapoints
-                                    double ask = request.Bars.BarsSeries.GetAsk(i);
                                     double bid = request.Bars.BarsSeries.GetBid(i);
+                                    double ask = request.Bars.BarsSeries.GetAsk(i);
                                     double close = request.Bars.BarsSeries.GetClose(i);
                                     long volume = request.Bars.BarsSeries.GetVolume(i);
 
@@ -380,12 +402,20 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
                                     orderFlow.ClassifyTrade(false, ask, bid, close, volume, time);
 
                                     // Calculate current max volume for session
-                                    long totalVolume = orderFlow.GetVolumeAtPrice(close);
-                                    if (totalVolume > maxVolume) {
-                                        maxVolume =  totalVolume;
+                                    long volAtPrice = orderFlow.GetVolumeAtPrice(close);
+                                    totalVolume += volume;
+                                    if (volAtPrice > maxVolume)
+                                    {
+                                        maxVolume = volAtPrice;
                                         // Historical VPOC
-                                        VPOC = close;   
+                                        VPOC = close;
                                     }
+                                }
+
+                                // Calculate VAH and VAL
+                                if (DisplayVolume)
+                                {
+                                    CalculateValueArea();
                                 }
 
                                 lastMaxIndex = request.Bars.Count - 1;
@@ -414,6 +444,11 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
                 WeakEventManager<System.Windows.Controls.Panel, MouseEventArgs>.AddHandler(UiWrapper, "MouseDown", OnMouseClick);
                 mouseEventsSubscribed = true;
 
+                if (false && !marketDepthSubscribed && SuperDom.MarketDepth != null)
+                {
+                    WeakEventManager<Data.MarketDepth<LadderRow>, Data.MarketDepthEventArgs>.AddHandler(SuperDom.MarketDepth, "Update", OnMarketDepthUpdate);
+                    marketDepthSubscribed = true;
+                }
             }
             else if (State == State.DataLoaded)
             {
@@ -446,8 +481,66 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
                     mouseEventsSubscribed = false;
                 }
 
+                if (marketDepthSubscribed)
+                {
+                    WeakEventManager<Data.MarketDepth<LadderRow>, Data.MarketDepthEventArgs>.RemoveHandler(SuperDom.MarketDepth, "Update", OnMarketDepthUpdate);
+                    marketDepthSubscribed = false;
+                }
+
                 lastMaxIndex = 0;
                 orderFlow.ClearAll();
+            }
+        }
+
+        private void CalculateValueArea()
+        {
+            // 70% of volume
+            double vaVolume = totalVolume * 0.682;
+            VAH = VPOC;
+            VAL = VPOC;
+            double accVolume = 0;
+            double sessionHigh = orderFlow.GetSessionHigh();
+            double sessionLow = orderFlow.GetSessionLow();
+            double above = VPOC;
+            double below = VPOC;
+            while (accVolume < vaVolume)
+            {
+                above = above + SuperDom.Instrument.MasterInstrument.TickSize;
+                below = below - SuperDom.Instrument.MasterInstrument.TickSize;
+
+                double aboveVol = orderFlow.GetVolumeAtPrice(above);
+                double belowVol = orderFlow.GetVolumeAtPrice(below);
+
+                if (aboveVol >= belowVol)
+                {
+                    VAH = above;
+                    accVolume += aboveVol;
+                }
+                if (belowVol >= aboveVol)
+                {
+                    VAL = below;
+                    accVolume += belowVol;
+                }
+            }
+        }
+
+        private void OnMarketDepthUpdate(object sender, Data.MarketDepthEventArgs marketDepthUpdate)
+        {
+            if (marketDepthUpdate.MarketDataType == MarketDataType.Ask && (marketDepthUpdate.Operation == Operation.Add || marketDepthUpdate.Operation == Operation.Update))
+            {
+                orderFlow.AddOrUpdateAsk(marketDepthUpdate.Price, marketDepthUpdate.Volume, marketDepthUpdate.Time);
+            }
+            else if (marketDepthUpdate.MarketDataType == MarketDataType.Ask && marketDepthUpdate.Operation == Operation.Remove)
+            {
+                orderFlow.AddOrUpdateAsk(marketDepthUpdate.Price, 0, marketDepthUpdate.Time);
+            }
+            else if (marketDepthUpdate.MarketDataType == MarketDataType.Bid && (marketDepthUpdate.Operation == Operation.Add || marketDepthUpdate.Operation == Operation.Update))
+            {
+                orderFlow.AddOrUpdateBid(marketDepthUpdate.Price, marketDepthUpdate.Volume, marketDepthUpdate.Time);
+            }
+            else if (marketDepthUpdate.MarketDataType == MarketDataType.Bid && marketDepthUpdate.Operation == Operation.Remove)
+            {
+                orderFlow.AddOrUpdateBid(marketDepthUpdate.Price, 0, marketDepthUpdate.Time);
             }
         }
 
@@ -461,17 +554,15 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
                     return;
                 }
 
-                List<NinjaTrader.Gui.SuperDom.LadderRow> askLadder = SuperDom.MarketDepth.Asks;
-                askLadder = new List<NinjaTrader.Gui.SuperDom.LadderRow>(askLadder.Count > BidAskRows ? askLadder.GetRange(0, BidAskRows) : askLadder);
-
-                List<NinjaTrader.Gui.SuperDom.LadderRow> bidLadder = SuperDom.MarketDepth.Bids;
-                bidLadder = new List<NinjaTrader.Gui.SuperDom.LadderRow>(bidLadder.Count > BidAskRows ? bidLadder.GetRange(0, BidAskRows) : bidLadder);
-
                 BarsUpdateEventArgs barsUpdate = e;
                 lock (barsSync)
                 {
-                    int currentMaxIndex = barsUpdate.MaxIndex;
 
+                    // Get copies of the ask and bid ladders for orderflow calculations
+                    orderFlow.SetAskLadder(GetAskLadderCopy());
+                    orderFlow.SetBidLadder(GetBidLadderCopy());
+
+                    int currentMaxIndex = barsUpdate.MaxIndex;
                     for (int i = lastMaxIndex + 1; i <= currentMaxIndex; i++)
                     {
                         if (barsUpdate.BarsSeries.GetIsFirstBarOfSession(i))
@@ -502,16 +593,23 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
                         orderFlow.ClassifyTrade(true, ask, bid, close, volume, time);
 
                         // Calculate cumulative bid/ask sizes
-                        orderFlow.UpdateBidAskData(askLadder, bidLadder);
+                        orderFlow.CalculateCumulativeBidAsk();
 
                         // Calculate current max volume for session
-                        long totalVolume = orderFlow.GetVolumeAtPrice(close);
-                        if (totalVolume > maxVolume) {
-                            maxVolume =  totalVolume;
+                        long volAtPrice = orderFlow.GetVolumeAtPrice(close);
+                        totalVolume += volume;
+                        if (volAtPrice > maxVolume)
+                        {
+                            maxVolume = volAtPrice;
                             // Current VPOC
                             VPOC = close;
                         }
-                        
+                    }
+
+                    // Calculate VAH and VAL
+                    if (DisplayVolume)
+                    {
+                        CalculateValueArea();
                     }
 
                     lastMaxIndex = barsUpdate.MaxIndex;
@@ -522,6 +620,76 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
                     }
                 }
             }
+        }
+
+        private List<LadderRow> GetBidLadderCopy()
+        {
+            long cond = 0;
+            List<LadderRow> ladder = null;
+            try
+            {
+                if (SuperDom.MarketDepth.Bids.Count > 0)
+                {
+                    cond = 1;
+                    if (SuperDom.MarketDepth.Bids.Count > BidAskRows)
+                    {
+                        cond = 2;
+                        lock (SuperDom.MarketDepth.Bids)
+                        {
+                            cond = 3;
+                            cond = SuperDom.MarketDepth.Bids.Count;
+                            ladder = SuperDom.MarketDepth.Bids.GetRange(0, BidAskRows);
+                        }
+                    }
+                    else
+                    {
+                        cond = 4;
+                        ladder = SuperDom.MarketDepth.Bids;
+                    }
+                    cond = 5;
+                    ladder = new List<NinjaTrader.Gui.SuperDom.LadderRow>(ladder);
+                }
+            }
+            catch (Exception ex)
+            {
+                Print("GetBidLadderCopy : cond: " + cond + "\n" + ex.ToString());
+            }
+            return ladder;
+        }
+
+        private List<LadderRow> GetAskLadderCopy()
+        {
+            long cond = 0;
+            List<LadderRow> ladder = null;
+            try
+            {
+                if (SuperDom.MarketDepth.Asks.Count > 0)
+                {
+                    cond = 1;
+                    if (SuperDom.MarketDepth.Asks.Count > BidAskRows)
+                    {
+                        cond = 2;
+                        lock (SuperDom.MarketDepth.Asks)
+                        {
+                            cond = 3;
+                            cond = SuperDom.MarketDepth.Asks.Count;
+                            ladder = SuperDom.MarketDepth.Asks.GetRange(0, BidAskRows);
+                        }
+                    }
+                    else
+                    {
+                        cond = 4;
+                        ladder = SuperDom.MarketDepth.Asks;
+                    }
+                    cond = 5;
+                    ladder = new List<NinjaTrader.Gui.SuperDom.LadderRow>(ladder);
+                }
+            }
+            catch (Exception ex)
+            {
+                Print("GetAskLadderCopy : cond: " + cond + "\n" + ex.ToString());
+            }
+            return ladder;
         }
 
         protected override void OnRender(DrawingContext dc, double renderWidth)
@@ -557,7 +725,7 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
             }
 
             lock (SuperDom.Rows)
-            { 
+            {
                 foreach (PriceRow row in SuperDom.Rows)
                 {
                     if (renderWidth - halfPenWidth >= 0)
@@ -572,7 +740,14 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
                             }
 
                             // Render the grid
-                            DrawGrid(dc, renderWidth, verticalOffset, row);
+                            try
+                            {
+                                DrawGrid(dc, renderWidth, verticalOffset, row);
+                            }
+                            catch (Exception e)
+                            {
+                                Print("An error occurred. Please report this bug. Thanks for your help." + e.ToString());
+                            }
 
                             verticalOffset += SuperDom.ActualRowHeight;
                         }
@@ -610,232 +785,309 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
 
         private void DrawGrid(DrawingContext dc, double renderWidth, double verticalOffset, PriceRow row)
         {
-            double x = 0;
-
-            for (int i = 0; i < columns.Count; i++)
+            try
             {
-                ColumnDefinition colDef = columns[i];
-                double cellWidth = CalculateCellWidth(colDef.ColumnSize, renderWidth);
-                Brush cellColor = colDef.BackgroundColor;
-                Rect rect = new Rect(x, verticalOffset, cellWidth, SuperDom.ActualRowHeight);
+                double x = 0;
 
-                // Create a guidelines set
-                GuidelineSet guidelines = new GuidelineSet();
-                guidelines.GuidelinesX.Add(rect.Left + halfPenWidth);
-                guidelines.GuidelinesX.Add(rect.Right + halfPenWidth);
-                guidelines.GuidelinesY.Add(rect.Top + halfPenWidth);
-                guidelines.GuidelinesY.Add(rect.Bottom + halfPenWidth);
-                dc.PushGuidelineSet(guidelines);
-
-                // BID column color
-                if ((colDef.ColumnType == ColumnType.BID ||
-                    colDef.ColumnType == ColumnType.BID_CHANGE) &&
-                    row.Price < SuperDom.CurrentLast)
+                for (int i = 0; i < columns.Count; i++)
                 {
-                    cellColor = BidColumnColor;
-                }
+                    ColumnDefinition colDef = columns[i];
+                    double cellWidth = CalculateCellWidth(colDef.ColumnSize, renderWidth);
+                    Brush cellColor = colDef.BackgroundColor;
+                    Rect rect = new Rect(x, verticalOffset, cellWidth, SuperDom.ActualRowHeight);
 
-                // ASK column color
-                if ((colDef.ColumnType == ColumnType.ASK ||
-                    colDef.ColumnType == ColumnType.ASK_CHANGE) &&
-                    row.Price > SuperDom.CurrentLast)
-                {
-                    cellColor = AskColumnColor;
-                }
+                    // Create a guidelines set
+                    GuidelineSet guidelines = new GuidelineSet();
+                    guidelines.GuidelinesX.Add(rect.Left + halfPenWidth);
+                    guidelines.GuidelinesX.Add(rect.Right + halfPenWidth);
+                    guidelines.GuidelinesY.Add(rect.Top + halfPenWidth);
+                    guidelines.GuidelinesY.Add(rect.Bottom + halfPenWidth);
+                    dc.PushGuidelineSet(guidelines);
 
-                // Position based row color
-                if (SuperDom.Position != null && row.IsEntry && colDef.ColumnType != ColumnType.OF_STRENGTH && colDef.ColumnType != ColumnType.VOLUME)
-                {
-                    if (SuperDom.Position.MarketPosition == MarketPosition.Long)
+                    // BID column color
+                    if ((colDef.ColumnType == ColumnType.BID ||
+                        colDef.ColumnType == ColumnType.BID_CHANGE) &&
+                        row.Price < SuperDom.CurrentLast)
                     {
-                        cellColor = LongPositionRowColor;
+                        cellColor = BidColumnColor;
                     }
+
+                    // ASK column color
+                    if ((colDef.ColumnType == ColumnType.ASK ||
+                        colDef.ColumnType == ColumnType.ASK_CHANGE) &&
+                        row.Price > SuperDom.CurrentLast)
+                    {
+                        cellColor = AskColumnColor;
+                    }
+
+                    // Position based row color
+                    if (SuperDom.Position != null && row.IsEntry && colDef.ColumnType != ColumnType.OF_STRENGTH && colDef.ColumnType != ColumnType.VOLUME)
+                    {
+                        if (SuperDom.Position.MarketPosition == MarketPosition.Long)
+                        {
+                            cellColor = LongPositionRowColor;
+                        }
+                        else
+                        {
+                            cellColor = ShortPositionRowColor;
+                        }
+                    }
+
+                    // Indicate current price
+                    if (row.Price == SuperDom.CurrentLast && colDef.ColumnType != ColumnType.OF_STRENGTH && colDef.ColumnType != ColumnType.VOLUME)
+                    {
+                        cellColor = CurrentPriceRowColor;
+                    }
+
+                    // Headers row
+                    if (row.Price == SuperDom.UpperPrice)
+                    {
+                        cellColor = HeaderRowColor;
+                    }
+
+                    // Summary/Bottom row
+                    if (row.Price == SuperDom.LowerPrice)
+                    {
+                        cellColor = HeaderRowColor;
+                    }
+
+                    // If in position, show MFE and MAE
+                    if (SuperDom.Position != null)
+                    {
+                        Position position = SuperDom.Position;
+                        // TODO:
+                        ////////////////////////////////////////////////////////////////////////////////////////////                    
+                    }
+
+                    // Draw grid rectangle
+                    dc.DrawRectangle(cellColor, null, rect);
+                    dc.DrawLine(gridPen, new Point(-gridPen.Thickness, rect.Bottom), new Point(renderWidth - halfPenWidth, rect.Bottom));
+                    if (row.Price != SuperDom.CurrentLast && colDef.ColumnType != ColumnType.OF_STRENGTH && colDef.ColumnType != ColumnType.VOLUME)
+                    {
+                        dc.DrawLine(gridPen, new Point(rect.Right, verticalOffset), new Point(rect.Right, rect.Bottom));
+                    }
+
+                    // Write Header Row
+                    if (row.Price == SuperDom.UpperPrice)
+                    {
+                        Brush headerColor = HeadersTextColor;
+                        string headerText = colDef.ColumnType.GetEnumDescription();
+                        if (colDef.ColumnType == ColumnType.SELLS || colDef.ColumnType == ColumnType.BUYS)
+                        {
+                            if (SlidingWindowLastMaxOnly)
+                            {
+                                headerText = "* MAX";
+                                headerColor = Brushes.Yellow;
+                            }
+                            else if (SlidingWindowLastOnly)
+                            {
+                                headerText = "* PRINT";
+                                headerColor = Brushes.Yellow;
+                            }
+                        }
+
+                        FormattedText header = FormatText(headerText, renderWidth, headerColor, TextAlignment.Left);
+                        dc.DrawText(header, new Point(rect.Left + 10, verticalOffset + (SuperDom.ActualRowHeight - header.Height) / 2));
+                    }
+                    // Regular data rows
                     else
                     {
-                        cellColor = ShortPositionRowColor;
-                    }
-                }
-
-                // Indicate current price
-                if (row.Price == SuperDom.CurrentLast && colDef.ColumnType != ColumnType.OF_STRENGTH && colDef.ColumnType != ColumnType.VOLUME)
-                {
-                    cellColor = CurrentPriceRowColor;
-                }
-
-                // Headers row
-                if (row.Price == SuperDom.UpperPrice) {
-                    cellColor = HeaderRowColor;
-                }
-
-                // If in position, show MFE and MAE
-                if (SuperDom.Position != null)
-                {
-                    Position position = SuperDom.Position;
-                    // TODO:
-                    ////////////////////////////////////////////////////////////////////////////////////////////                    
-                }
-
-                // Draw grid rectangle
-                dc.DrawRectangle(cellColor, null, rect);
-                dc.DrawLine(gridPen, new Point(-gridPen.Thickness, rect.Bottom), new Point(renderWidth - halfPenWidth, rect.Bottom));
-                if (row.Price != SuperDom.CurrentLast && colDef.ColumnType != ColumnType.OF_STRENGTH && colDef.ColumnType != ColumnType.VOLUME)
-                {
-                    dc.DrawLine(gridPen, new Point(rect.Right, verticalOffset), new Point(rect.Right, rect.Bottom));
-                }
-                
-                // Write Header Row
-                if (row.Price == SuperDom.UpperPrice) {
-                    Brush headerColor = HeadersTextColor;
-                    string headerText = colDef.ColumnType.GetEnumDescription();
-                    if (colDef.ColumnType == ColumnType.SELLS || colDef.ColumnType == ColumnType.BUYS) {
-                        if (SlidingWindowLastMaxOnly) {
-                            headerText = "* MAX";
-                            headerColor = Brushes.Yellow;
-                        }
-                        else if (SlidingWindowLastOnly) {
-                            headerText = "* PRINT";
-                            headerColor = Brushes.Yellow;
-                        }
-                    }
-                    
-                    FormattedText header = FormatText(headerText, renderWidth, headerColor, TextAlignment.Left);
-                    dc.DrawText(header, new Point(rect.Left + 10, verticalOffset + (SuperDom.ActualRowHeight - header.Height) / 2));
-                }
-                else {
-                    if (colDef.ColumnType == ColumnType.VOLUME && colDef.Text != null)
-                    {
-                        long volumeAtPrice = colDef.Text.Text == null ? 0 : long.Parse(colDef.Text.Text);
-                        double totalWidth = cellWidth * ((double)volumeAtPrice / maxVolume);
-                        double volumeWidth = totalWidth == cellWidth ? totalWidth - gridPen.Thickness * 1.5 : totalWidth - halfPenWidth;
-
-                        double vah = SuperDom.Instrument.MasterInstrument.RoundToTickSize(VPOC + ((orderFlow.GetSessionHigh() - VPOC)*0.34));
-                        double val = SuperDom.Instrument.MasterInstrument.RoundToTickSize(VPOC - ((VPOC - orderFlow.GetSessionLow())*0.34));
-
-                        if (volumeWidth >= 0)
+                        // Draw Volume + Profile
+                        if (row.Price != SuperDom.LowerPrice && colDef.ColumnType == ColumnType.VOLUME && colDef.Text != null)
                         {
-                            Brush color = (row.Price == VPOC ? VPOCColor : (row.Price > vah || row.Price < val ? NonVAColor : VolumeColor));
+                            long volumeAtPrice = colDef.Text.Text == null ? 0 : long.Parse(colDef.Text.Text);
+                            double totalWidth = cellWidth * ((double)volumeAtPrice / maxVolume);
+                            double volumeWidth = totalWidth == cellWidth ? totalWidth - gridPen.Thickness * 1.5 : totalWidth - halfPenWidth;
 
-                            double xc = x + (cellWidth - volumeWidth);
-                            dc.DrawRectangle(color, null, new Rect(xc, verticalOffset + halfPenWidth, volumeWidth, rect.Height - gridPen.Thickness));
-                        }
+                            if (volumeWidth >= 0)
+                            {
+                                Brush color = (row.Price == VPOC ? VPOCColor : (row.Price > VAH || row.Price < VAL ? NonVAColor : VolumeColor));
 
-                        if (!DisplayVolumeText)
-                        {
-                            colDef.Text = null;
-                        }
-                    }
-                    else if (DisplayBidAskHistogram && colDef.ColumnType == ColumnType.ASK && colDef.Text != null)                    
-                    {                        
-                        BidAskPerc bidAskPerc = orderFlow.GetAskPerc(row.Price);
-                        double perc = bidAskPerc == null ? 0 : bidAskPerc.Perc;
-
-                        double totalWidth = cellWidth * perc;
-                        double paintWidth = totalWidth == cellWidth ? totalWidth - askSizePen.Thickness * 1.5 : totalWidth - halfPenWidth;
-
-                        if (paintWidth >= 0)
-                        {
-                            double xc = x + (cellWidth - paintWidth);
-                            dc.DrawRectangle(null, askSizePen, new Rect(xc, verticalOffset + halfPenWidth, paintWidth, rect.Height - askSizePen.Thickness));
-                        }
-
-                    }
-                    else if (DisplayBidAskHistogram && colDef.ColumnType == ColumnType.BID && colDef.Text != null)                    
-                    {
-                        BidAskPerc bidAskPerc = orderFlow.GetBidPerc(row.Price);
-                        double perc = bidAskPerc == null ? 0 : bidAskPerc.Perc;
-
-                        double totalWidth = cellWidth * perc;
-                        double paintWidth = totalWidth == cellWidth ? totalWidth - bidSizePen.Thickness * 1.5 : totalWidth - halfPenWidth;
-
-                        if (paintWidth >= 0)
-                        {
-                            double xc = x + (cellWidth - paintWidth);
-                            dc.DrawRectangle(null, bidSizePen, new Rect(xc, verticalOffset + halfPenWidth, paintWidth, rect.Height - bidSizePen.Thickness));
-                        }
-                    }
-                    else if (DisplaySlidingWindowTotals && (colDef.ColumnType == ColumnType.SELLS || colDef.ColumnType == ColumnType.BUYS)) {
-
-                        double highestPriceInSlidingWindow = orderFlow.GetHighestBuyPriceInSlidingWindow();
-                        double lowestPriceInSlidingWindow = orderFlow.GetLowestSellPriceInSlidingWindow();
-
-                        // Calculate prices at which to display totals
-                        double sellTotalsPrice = lowestPriceInSlidingWindow - SuperDom.Instrument.MasterInstrument.TickSize;
-                        double buyTotalsPrice = highestPriceInSlidingWindow + SuperDom.Instrument.MasterInstrument.TickSize;
-
-                        double buyTotal = 0;
-                        double sellTotal = 0;
-
-                        if (SlidingWindowLastMaxOnly) {
-                            buyTotal = orderFlow.GetTotalLargeBuysInSlidingWindow();
-                            sellTotal = orderFlow.GetTotalLargeSellsInSlidingWindow();
-                        }
-                        else if (SlidingWindowLastOnly) {
-                            buyTotal = orderFlow.GetTotalBuyPrintsInSlidingWindow();
-                            sellTotal = orderFlow.GetTotalSellPrintsInSlidingWindow();
-                        }
-                        else {
-                            buyTotal = orderFlow.GetBuysInSlidingWindow();
-                            sellTotal = orderFlow.GetSellsInSlidingWindow();
-                        }
-
-                        if (colDef.ColumnType == ColumnType.BUYS && highestPriceInSlidingWindow > 0) {
-                            // If we're at the price where the totals should be rendered
-                            if (row.Price == buyTotalsPrice) {
-
-                                FormattedText text = FormatText(buyTotal.ToString(), renderWidth, BuyTextColor, TextAlignment.Right);
-
-                                dc.DrawText(text, new Point(rect.Right - 5, verticalOffset + (SuperDom.ActualRowHeight - text.Height) / 2));
-                                dc.DrawRectangle(null, highlightPen, new Rect(x - 1 , verticalOffset + halfPenWidth -1 , cellWidth, rect.Height - highlightPen.Thickness));
+                                double xc = x + (cellWidth - volumeWidth);
+                                dc.DrawRectangle(color, null, new Rect(xc, verticalOffset + halfPenWidth, volumeWidth, rect.Height - gridPen.Thickness));
                             }
-                            else if (DisplayBuySellPerc && row.Price == sellTotalsPrice && sellTotal > 0 && sellTotal > buyTotal) {
-                                // Write strength percentage if Sell side is stronger
-                                double perc = (sellTotal-buyTotal)/sellTotal;
-                                if (perc > TotalsPercThreshold) {
 
-                                    string strength =  perc.ToString("P0", CultureInfo.InvariantCulture);
+                            if (!DisplayVolumeText)
+                            {
+                                colDef.Text = null;
+                            }
+                        }
+                        // Draw ASK Histogram
+                        else if (row.Price != SuperDom.LowerPrice && DisplayBidAskHistogram && colDef.ColumnType == ColumnType.ASK && colDef.Text != null)
+                        {
+                            BidAskPerc bidAskPerc = orderFlow.GetAskPerc(row.Price);
+                            double perc = bidAskPerc == null ? 0 : bidAskPerc.Perc;
 
-                                    FormattedText text = FormatText(strength, renderWidth, SellTextColor, TextAlignment.Right);
+                            double totalWidth = cellWidth * perc;
+                            double paintWidth = totalWidth == cellWidth ? totalWidth - askSizePen.Thickness * 1.5 : totalWidth - halfPenWidth;
+
+                            if (paintWidth >= 0)
+                            {
+                                double xc = x + (cellWidth - paintWidth);
+                                dc.DrawRectangle(null, askSizePen, new Rect(xc, verticalOffset + halfPenWidth, paintWidth, rect.Height - askSizePen.Thickness));
+                            }
+
+                        }
+                        // Draw BID Histogram
+                        else if (row.Price != SuperDom.LowerPrice && DisplayBidAskHistogram && colDef.ColumnType == ColumnType.BID && colDef.Text != null)
+                        {
+                            BidAskPerc bidAskPerc = orderFlow.GetBidPerc(row.Price);
+                            double perc = bidAskPerc == null ? 0 : bidAskPerc.Perc;
+
+                            double totalWidth = cellWidth * perc;
+                            double paintWidth = totalWidth == cellWidth ? totalWidth - bidSizePen.Thickness * 1.5 : totalWidth - halfPenWidth;
+
+                            if (paintWidth >= 0)
+                            {
+                                double xc = x + (cellWidth - paintWidth);
+                                dc.DrawRectangle(null, bidSizePen, new Rect(xc, verticalOffset + halfPenWidth, paintWidth, rect.Height - bidSizePen.Thickness));
+                            }
+                        }
+                        // Draw Buy/Sell columns
+                        else if (DisplaySlidingWindowTotals && (colDef.ColumnType == ColumnType.SELLS || colDef.ColumnType == ColumnType.BUYS))
+                        {
+
+                            double highestPriceInSlidingWindow = orderFlow.GetHighestBuyPriceInSlidingWindow();
+                            double lowestPriceInSlidingWindow = orderFlow.GetLowestSellPriceInSlidingWindow();
+
+                            // Calculate prices at which to display totals
+                            double sellTotalsPrice = lowestPriceInSlidingWindow - SuperDom.Instrument.MasterInstrument.TickSize;
+                            double buyTotalsPrice = highestPriceInSlidingWindow + SuperDom.Instrument.MasterInstrument.TickSize;
+
+                            double buyTotal = 0;
+                            double sellTotal = 0;
+
+                            if (SlidingWindowLastMaxOnly)
+                            {
+                                buyTotal = orderFlow.GetTotalLargeBuysInSlidingWindow();
+                                sellTotal = orderFlow.GetTotalLargeSellsInSlidingWindow();
+                            }
+                            else if (SlidingWindowLastOnly)
+                            {
+                                buyTotal = orderFlow.GetTotalBuyPrintsInSlidingWindow();
+                                sellTotal = orderFlow.GetTotalSellPrintsInSlidingWindow();
+                            }
+                            else
+                            {
+                                buyTotal = orderFlow.GetBuysInSlidingWindow();
+                                sellTotal = orderFlow.GetSellsInSlidingWindow();
+                            }
+
+                            if (colDef.ColumnType == ColumnType.BUYS && highestPriceInSlidingWindow > 0)
+                            {
+                                // If we're at the price where the totals should be rendered
+                                if (row.Price == buyTotalsPrice || row.Price == SuperDom.LowerPrice)
+                                {
+
+                                    FormattedText text = FormatText(buyTotal.ToString(), renderWidth, BuyTextColor, TextAlignment.Right);
+
                                     dc.DrawText(text, new Point(rect.Right - 5, verticalOffset + (SuperDom.ActualRowHeight - text.Height) / 2));
+                                    if (row.Price != SuperDom.LowerPrice)
+                                    {
+                                        dc.DrawRectangle(null, highlightPen, new Rect(x - 1, verticalOffset + halfPenWidth - 1, cellWidth, rect.Height - highlightPen.Thickness));
+                                    }
+                                }
+                                else if (DisplayBuySellPerc && row.Price == sellTotalsPrice && sellTotal > 0 && sellTotal > buyTotal)
+                                {
+                                    // Write strength percentage if Sell side is stronger
+                                    double perc = (sellTotal - buyTotal) / sellTotal;
+                                    if (perc > TotalsPercThreshold)
+                                    {
+
+                                        string strength = perc.ToString("P0", CultureInfo.InvariantCulture);
+
+                                        FormattedText text = FormatText(strength, renderWidth, SellTextColor, TextAlignment.Right);
+                                        dc.DrawText(text, new Point(rect.Right - 5, verticalOffset + (SuperDom.ActualRowHeight - text.Height) / 2));
+                                    }
+
+                                }
+                            }
+
+                            if (colDef.ColumnType == ColumnType.SELLS && lowestPriceInSlidingWindow > 0)
+                            {
+
+                                // If we're at the price where the totals should be rendered
+                                if (row.Price == sellTotalsPrice || row.Price == SuperDom.LowerPrice)
+                                {
+
+                                    FormattedText text = FormatText(sellTotal.ToString(), renderWidth, SellTextColor, TextAlignment.Right);
+
+                                    dc.DrawText(text, new Point(rect.Right - 5, verticalOffset + (SuperDom.ActualRowHeight - text.Height) / 2));
+                                    if (row.Price != SuperDom.LowerPrice)
+                                    {
+                                        dc.DrawRectangle(null, highlightPen, new Rect(x - 1, verticalOffset + halfPenWidth - 1, cellWidth, rect.Height - highlightPen.Thickness));
+                                    }
+                                }
+                                else if (DisplayBuySellPerc && row.Price == buyTotalsPrice && buyTotal > 0 && buyTotal > sellTotal)
+                                {
+                                    // Write strength percentage if Buy side is stronger
+                                    double perc = (buyTotal - sellTotal) / buyTotal;
+                                    if (perc > TotalsPercThreshold)
+                                    {
+
+                                        string strength = perc.ToString("P0", CultureInfo.InvariantCulture);
+
+                                        FormattedText text = FormatText(strength, renderWidth, BuyTextColor, TextAlignment.Right);
+                                        dc.DrawText(text, new Point(rect.Right - 5, verticalOffset + (SuperDom.ActualRowHeight - text.Height) / 2));
+                                    }
+
+                                }
+                            }
+                        }
+
+                        // Write Footer/Summary Row
+                        if (row.Price == SuperDom.LowerPrice)
+                        {
+                            Brush color = DefaultTextColor;
+                            string text = "";
+
+                            if (colDef.ColumnType == ColumnType.CUMULATIVE_BID_IN_WINDOW)
+                            {
+                                double changes = orderFlow.GetTotalCumulativeBidChanges();
+                                text = (changes > 0 ? "+" : "") + changes.ToString();
+                                bool allPositiveBidChanges = orderFlow.isAllBidChangesPositive();
+                                bool allNegativeAskChanges = orderFlow.isAllAskChangesNegative();
+
+                                if (allPositiveBidChanges)
+                                {
+                                    color = BuyTextColor;
+                                    text += " ▲";
                                 }
 
                             }
-                        }
-                        
-                        if (colDef.ColumnType == ColumnType.SELLS && lowestPriceInSlidingWindow > 0) {                            
+                            else if (colDef.ColumnType == ColumnType.CUMULATIVE_ASK_IN_WINDOW)
+                            {
+                                double changes = orderFlow.GetTotalCumulativeAskChanges();
+                                text = (changes > 0 ? "+" : "") + changes.ToString();
+                                bool allPositiveAskChanges = orderFlow.isAllAskChangesPositive();
+                                bool allNegativeBidChanges = orderFlow.isAllBidChangesNegative();
 
-                            // If we're at the price where the totals should be rendered
-                            if (row.Price == sellTotalsPrice) {
-
-                                FormattedText text = FormatText(sellTotal.ToString(), renderWidth, SellTextColor, TextAlignment.Right);
-
-                                dc.DrawText(text, new Point(rect.Right - 5, verticalOffset + (SuperDom.ActualRowHeight - text.Height) / 2));
-                                dc.DrawRectangle(null, highlightPen, new Rect(x - 1, verticalOffset + halfPenWidth - 1, cellWidth, rect.Height - highlightPen.Thickness));
-                            }
-                            else if (DisplayBuySellPerc && row.Price == buyTotalsPrice && buyTotal > 0 && buyTotal > sellTotal) {
-                                // Write strength percentage if Buy side is stronger
-                                double perc = (buyTotal - sellTotal)/buyTotal;
-                                if (perc > TotalsPercThreshold) {
-
-                                    string strength =  perc.ToString("P0", CultureInfo.InvariantCulture);
-
-                                    FormattedText text = FormatText(strength, renderWidth, BuyTextColor, TextAlignment.Right);
-                                    dc.DrawText(text, new Point(rect.Right - 5, verticalOffset + (SuperDom.ActualRowHeight - text.Height) / 2));
+                                if (allPositiveAskChanges)
+                                {
+                                    color = SellTextColor;
+                                    text = "▼ " + text;
                                 }
+                            }
 
-                            }                            
+                            FormattedText ftext = FormatText(text, renderWidth, color, TextAlignment.Right);
+                            dc.DrawText(ftext, new Point(rect.Right - 5, verticalOffset + (SuperDom.ActualRowHeight - ftext.Height) / 2));
                         }
+                        // Write the column text
+                        else if (colDef.Text != null)
+                        {
+                            dc.DrawText(colDef.Text, new Point(colDef.Text.TextAlignment == TextAlignment.Left ? rect.Left + 5 : rect.Right - 5, verticalOffset + (SuperDom.ActualRowHeight - colDef.Text.Height) / 2));
+                        }
+
                     }
 
-                    // Write the column text
-                    if (colDef.Text != null) 
-                    {
-                        dc.DrawText(colDef.Text, new Point(colDef.Text.TextAlignment == TextAlignment.Left ? rect.Left + 5 : rect.Right - 5, verticalOffset + (SuperDom.ActualRowHeight - colDef.Text.Height) / 2));
-                    }
+                    dc.Pop();
+
+                    x += cellWidth;
                 }
-
-                dc.Pop();
-
-                x += cellWidth;
+            }
+            catch (Exception e)
+            {
+                Print("An error occurred. Please report this bug. Thanks for your help." + e.ToString());
             }
         }
 
@@ -858,23 +1110,24 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
             long totalVolume = orderFlow.GetVolumeAtPrice(price);
             return totalVolume > 0 ? FormatText(totalVolume.ToString(), renderWidth, VolumeTextColor, TextAlignment.Right) : null;
         }
-        
-        private FormattedText CalculateOFStrength(double renderWidth, double price)
+
+        private FormattedText CalculateOFStrengthBase(OFSCalculationMode mode, double renderWidth, double price)
         {
             string text = "██";
             Brush color = Brushes.Transparent;
 
-            OFStrength ofStrength = orderFlow.CalculateOrderFlowStrength(OFSCalcMode, SuperDom.CurrentLast, SuperDom.Instrument.MasterInstrument.TickSize);
-
+            OFStrength ofStrength = orderFlow.CalculateOrderFlowStrength(mode, SuperDom.CurrentLast, SuperDom.Instrument.MasterInstrument.TickSize);
+            
             double buyStrength = ofStrength.buyStrength;
             double sellStrength = ofStrength.sellStrength;
 
             double totalRows = Convert.ToDouble(SuperDom.Rows.Count);
-            int nBuyRows = Convert.ToInt16(totalRows * (buyStrength/100.00));
+            int nBuyRows = Convert.ToInt16(totalRows * (buyStrength / 100.00));
             int nSellRows = Convert.ToInt16(totalRows - nBuyRows);
 
-            if (buyStrength + sellStrength > 0) {
-                if ((SuperDom.UpperPrice - price) < nSellRows*SuperDom.Instrument.MasterInstrument.TickSize)
+            if (buyStrength + sellStrength > 0)
+            {
+                if ((SuperDom.UpperPrice - price) < nSellRows * SuperDom.Instrument.MasterInstrument.TickSize)
                 {
                     if (sellStrength >= OrderFlowStrengthThreshold)
                     {
@@ -884,8 +1137,8 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
                     {
                         color = Brushes.Maroon;
                     }
-                    
-                    text = (nSellRows-1 == (SuperDom.UpperPrice - price)/SuperDom.Instrument.MasterInstrument.TickSize) ? Math.Round(sellStrength, 0, MidpointRounding.AwayFromZero).ToString() : text;
+
+                    text = (nSellRows - 1 == (SuperDom.UpperPrice - price) / SuperDom.Instrument.MasterInstrument.TickSize) ? Math.Round(sellStrength, 0, MidpointRounding.AwayFromZero).ToString() : text;
                 }
                 else
                 {
@@ -893,14 +1146,30 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
                     {
                         color = Brushes.Lime;
                     }
-                    else {
+                    else
+                    {
                         color = Brushes.DarkGreen;
                     }
-                    text = (nBuyRows-1 == (price -SuperDom.LowerPrice)/SuperDom.Instrument.MasterInstrument.TickSize) ? Math.Round(buyStrength, 0, MidpointRounding.AwayFromZero).ToString() : text;
+                    text = (nBuyRows - 1 == (price - SuperDom.LowerPrice) / SuperDom.Instrument.MasterInstrument.TickSize) ? Math.Round(buyStrength, 0, MidpointRounding.AwayFromZero).ToString() : text;
                 }
             }
 
             return FormatText(string.Format("{0}", text), renderWidth, color, TextAlignment.Right);
+        }
+
+        private FormattedText CalculateOFStrength(double renderWidth, double price)
+        {
+            return CalculateOFStrengthBase(OFSCalcMode, renderWidth, price);
+        }
+
+        private FormattedText CalculateOFStrengthImbalance(double renderWidth, double price)
+        {
+            return CalculateOFStrengthBase(OFSCalculationMode.IMBALANCE, renderWidth, price);
+        }
+
+        private FormattedText CalculateOFStrengthLevelII(double renderWidth, double price)
+        {
+            return CalculateOFStrengthBase(OFSCalculationMode.LEVEL2, renderWidth, price);
         }
 
         private FormattedText GenerateSessionBuysText(double renderWidth, double buyPrice)
@@ -949,13 +1218,9 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
 
         private FormattedText GenerateAskChangeText(double renderWidth, double price)
         {
-            List<NinjaTrader.Gui.SuperDom.LadderRow> ladder = SuperDom.MarketDepth.Asks;
-            ladder = ladder.Count > BidAskRows ? ladder.GetRange(0, BidAskRows) : ladder;
+            long change = orderFlow.GetAskChange(price);
 
-            long currentSize = getBidAskSize(price, ladder);
-            long change = orderFlow.GetAskChange(price, currentSize); 
-
-            if (currentSize > 0 && change != 0)
+            if (change != 0)
             {
                 Brush color = change > 0 ? BidAskAddColor : BidAskRemoveColor;
                 return FormatText(change.ToString(), renderWidth, color, TextAlignment.Right);
@@ -965,13 +1230,9 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
 
         private FormattedText GenerateBidChangeText(double renderWidth, double price)
         {
-            List<NinjaTrader.Gui.SuperDom.LadderRow> ladder = SuperDom.MarketDepth.Bids;
-            ladder = ladder.Count > BidAskRows ? ladder.GetRange(0, BidAskRows) : ladder;
+            long change = orderFlow.GetBidChange(price);
 
-            long currentSize = getBidAskSize(price, ladder);
-            long change = orderFlow.GetBidChange(price, currentSize);
-
-            if (currentSize > 0 && change != 0)
+            if (change != 0)
             {
                 Brush color = change > 0 ? BidAskAddColor : BidAskRemoveColor;
                 return FormatText(change.ToString(), renderWidth, color, TextAlignment.Right);
@@ -980,31 +1241,48 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
         }
 
         private FormattedText GenerateCumulativeBidText(double renderWidth, double price)
-        {            
+        {
             BidAsk bidAsk = orderFlow.GetCumulativeBid(price);
             if (bidAsk != null)
             {
-                long cumulativeBid = (long)bidAsk.Size;
-                if (cumulativeBid != 0) return FormatText(cumulativeBid.ToString(), renderWidth, cumulativeBid > 0 ? BidAskAddColor : BidAskRemoveColor, TextAlignment.Right);
+                long cumulativeValue = (long)bidAsk.Size;
+                Brush color = cumulativeValue > 0 ? BidAskAddColor : BidAskRemoveColor;
+                if (orderFlow.isAllBidChangesPositive())
+                {
+                    color = BuyTextColor;
+                }
+                else if (orderFlow.isAllBidChangesNegative())
+                {
+                    color = SellTextColor;
+                }
+                if (cumulativeValue != 0) return FormatText(cumulativeValue.ToString(), renderWidth, color, TextAlignment.Right);
             }
             return null;
         }
-        
+
         private FormattedText GenerateCumulativeAskText(double renderWidth, double price)
-        {            
+        {
             BidAsk bidAsk = orderFlow.GetCumulativeAsk(price);
             if (bidAsk != null)
             {
                 long cumulativeValue = (long)bidAsk.Size;
-                if (cumulativeValue != 0) return FormatText(cumulativeValue.ToString(), renderWidth, cumulativeValue > 0 ? BidAskAddColor : BidAskRemoveColor, TextAlignment.Right);
+                Brush color = cumulativeValue > 0 ? BidAskAddColor : BidAskRemoveColor;
+                if (orderFlow.isAllAskChangesPositive())
+                {
+                    color = BuyTextColor;
+                }
+                else if (orderFlow.isAllAskChangesNegative())
+                {
+                    color = SellTextColor;
+                }
+                if (cumulativeValue != 0) return FormatText(cumulativeValue.ToString(), renderWidth, color, TextAlignment.Right);
             }
             return null;
         }
-        
+
         private FormattedText GenerateAskText(double renderWidth, double price)
         {
-            BidAskPerc perc = orderFlow.GetAskPerc(price);
-            double currentSize = perc == null ? 0 : perc.Size;
+            long currentSize = orderFlow.GetAsk(price);
 
             if (currentSize > 0) return FormatText(currentSize.ToString(), renderWidth, DefaultTextColor, TextAlignment.Right);
 
@@ -1013,8 +1291,7 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
 
         private FormattedText GenerateBidText(double renderWidth, double price)
         {
-           BidAskPerc perc = orderFlow.GetBidPerc(price);
-            double currentSize = perc == null ? 0 : perc.Size;
+            long currentSize = orderFlow.GetBid(price);
 
             if (currentSize > 0) return FormatText(currentSize.ToString(), renderWidth, DefaultTextColor, TextAlignment.Right);
 
@@ -1024,20 +1301,23 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
         private FormattedText GenerateSlidingWindowBuysText(double renderWidth, double price)
         {
             // If requested to ONLY display last size (and not cumulative value)
-            if (SlidingWindowLastOnly) {
+            if (SlidingWindowLastOnly)
+            {
                 return GenerateLastBuyPrintText(renderWidth, price);
             }
-            else if (SlidingWindowLastMaxOnly) {
+            else if (SlidingWindowLastMaxOnly)
+            {
                 return GenerateLastBuyPrintMaxText(renderWidth, price);
             }
-            else {
+            else
+            {
                 double sellPrice = price - SuperDom.Instrument.MasterInstrument.TickSize;
 
                 Trade buys = orderFlow.GetBuysInSlidingWindow(price);
                 if (buys != null)
                 {
                     Brush color = SuperDom.CurrentAsk == price ? LastTradeColor : DefaultTextColor;
-                    
+
                     Trade sells = orderFlow.GetSellsInSlidingWindow(sellPrice);
                     if (sells != null && buys.Size > sells.Size * ImbalanceFactor)
                     {
@@ -1053,13 +1333,16 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
         private FormattedText GenerateSlidingWindowSellsText(double renderWidth, double price)
         {
             // If requested to ONLY display last size (and not cumulative value)
-            if (SlidingWindowLastOnly) {
+            if (SlidingWindowLastOnly)
+            {
                 return GenerateLastSellPrintText(renderWidth, price);
             }
-            else if (SlidingWindowLastMaxOnly) {
+            else if (SlidingWindowLastMaxOnly)
+            {
                 return GenerateLastSellPrintMaxText(renderWidth, price);
             }
-            else {
+            else
+            {
                 double buyPrice = price + SuperDom.Instrument.MasterInstrument.TickSize;
 
                 Trade sells = orderFlow.GetSellsInSlidingWindow(price);
@@ -1125,9 +1408,9 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
             }
 
             return null;
-        } 
+        }
 
-       private FormattedText GenerateLastBuyPrintMaxText(double renderWidth, double price)
+        private FormattedText GenerateLastBuyPrintMaxText(double renderWidth, double price)
         {
             long size = orderFlow.GetLastBuyPrintMax(price);
 
@@ -1148,7 +1431,7 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
             }
 
             return null;
-        }                 
+        }
 
         private long getBidAskSize(double price, List<NinjaTrader.Gui.SuperDom.LadderRow> ladder)
         {
@@ -1224,23 +1507,26 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
         #region Event Handlers
         private void OnMouseClick(object sender, MouseEventArgs e)
         {
-            NinjaTrader.Gui.SuperDom.ColumnWrapper wrapper = (NinjaTrader.Gui.SuperDom.ColumnWrapper) sender;
-            
-			if (e.LeftButton == MouseButtonState.Pressed) {
-				if (System.Windows.Forms.UserControl.ModifierKeys == System.Windows.Forms.Keys.Control) {
+            NinjaTrader.Gui.SuperDom.ColumnWrapper wrapper = (NinjaTrader.Gui.SuperDom.ColumnWrapper)sender;
+
+            if (e.LeftButton == MouseButtonState.Pressed)
+            {
+                if (System.Windows.Forms.UserControl.ModifierKeys == System.Windows.Forms.Keys.Control)
+                {
                     // Toggle display between last at price only vs. cumulative at price in Sliding Window
                     this.SlidingWindowLastMaxOnly = false;
                     this.SlidingWindowLastOnly = this.SlidingWindowLastOnly ? false : true;
                     OnPropertyChanged();
-				}
-				else if (System.Windows.Forms.UserControl.ModifierKeys == System.Windows.Forms.Keys.Shift) {
-					// Toggle display between last (MAX) at price only vs. cumulative at price in Sliding Window
+                }
+                else if (System.Windows.Forms.UserControl.ModifierKeys == System.Windows.Forms.Keys.Shift)
+                {
+                    // Toggle display between last (MAX) at price only vs. cumulative at price in Sliding Window
                     this.SlidingWindowLastOnly = false;
                     this.SlidingWindowLastMaxOnly = this.SlidingWindowLastMaxOnly ? false : true;
                     OnPropertyChanged();
-				}
-			}
-				
+                }
+            }
+
             if (e.MiddleButton == MouseButtonState.Pressed)
             {
                 orderFlow.ClearSlidingWindow();
@@ -1499,7 +1785,7 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
         {
             get { return NinjaTrader.Gui.Serialize.BrushToString(HeaderRowColor); }
             set { HeaderRowColor = NinjaTrader.Gui.Serialize.StringToBrush(value); }
-        }        
+        }
 
         [XmlIgnore]
         [NinjaScriptProperty]
@@ -1512,7 +1798,7 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
         {
             get { return NinjaTrader.Gui.Serialize.BrushToString(HeadersTextColor); }
             set { HeadersTextColor = NinjaTrader.Gui.Serialize.StringToBrush(value); }
-        }    
+        }
 
         [XmlIgnore]
         [NinjaScriptProperty]
@@ -1525,7 +1811,7 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
         {
             get { return NinjaTrader.Gui.Serialize.BrushToString(BidColumnColor); }
             set { BidColumnColor = NinjaTrader.Gui.Serialize.StringToBrush(value); }
-        }    
+        }
 
         [XmlIgnore]
         [NinjaScriptProperty]
@@ -1538,7 +1824,7 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
         {
             get { return NinjaTrader.Gui.Serialize.BrushToString(AskColumnColor); }
             set { AskColumnColor = NinjaTrader.Gui.Serialize.StringToBrush(value); }
-        }    
+        }
 
         [XmlIgnore]
         [NinjaScriptProperty]
@@ -1551,7 +1837,7 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
         {
             get { return NinjaTrader.Gui.Serialize.BrushToString(BuyColumnColor); }
             set { BuyColumnColor = NinjaTrader.Gui.Serialize.StringToBrush(value); }
-        }    
+        }
 
         [XmlIgnore]
         [NinjaScriptProperty]
@@ -1564,7 +1850,7 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
         {
             get { return NinjaTrader.Gui.Serialize.BrushToString(SellColumnColor); }
             set { SellColumnColor = NinjaTrader.Gui.Serialize.StringToBrush(value); }
-        }  
+        }
 
         [XmlIgnore]
         [NinjaScriptProperty]
@@ -1577,7 +1863,7 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
         {
             get { return NinjaTrader.Gui.Serialize.BrushToString(BidSizeColor); }
             set { BidSizeColor = NinjaTrader.Gui.Serialize.StringToBrush(value); }
-        }  
+        }
 
         [XmlIgnore]
         [NinjaScriptProperty]
@@ -1590,7 +1876,7 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
         {
             get { return NinjaTrader.Gui.Serialize.BrushToString(AskSizeColor); }
             set { AskSizeColor = NinjaTrader.Gui.Serialize.StringToBrush(value); }
-        }  
+        }
 
         [XmlIgnore]
         [NinjaScriptProperty]
@@ -1603,7 +1889,7 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
         {
             get { return NinjaTrader.Gui.Serialize.BrushToString(HighlightColor); }
             set { HighlightColor = NinjaTrader.Gui.Serialize.StringToBrush(value); }
-        }  
+        }
 
 
         [XmlIgnore]
@@ -1672,7 +1958,7 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
         [NinjaScriptProperty]
         [Display(Name = "Cumulative Bid/Ask", Description = "Display the cumulative bid/ask in Sliding Window", Order = 5, GroupName = "Bid / Ask Columns")]
         public bool DisplayBidAskCumulativeChange
-        { get; set; }    
+        { get; set; }
 
         // =========== OrderFlow Parameters
 
@@ -1693,11 +1979,11 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
         public int OrderFlowStrengthThreshold
         { get; set; }
 
-		[NinjaScriptProperty]
-		[Display(Name="OrderFlow Strength Calculation Mode", Description="OrderFlow strength calculation mode", Order=4, GroupName = "Order Flow Parameters")]
-		public OFSCalculationMode OFSCalcMode 
-		{ get; set; }
-        
+        [NinjaScriptProperty]
+        [Display(Name = "OrderFlow Strength Calculation Mode", Description = "OrderFlow strength calculation mode", Order = 4, GroupName = "Order Flow Parameters")]
+        public OFSCalculationMode OFSCalcMode
+        { get; set; }
+
         #endregion
 
     }
