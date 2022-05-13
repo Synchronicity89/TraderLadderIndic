@@ -11,7 +11,6 @@ using System.Text;
 using System.Threading.Tasks;
 using NinjaTrader.NinjaScript.Indicators;
 using NinjaTrader.Gui.SuperDom;
-using Gemify.OrderFlow.SlidingWindow;
 
 namespace Gemify.OrderFlow
 {
