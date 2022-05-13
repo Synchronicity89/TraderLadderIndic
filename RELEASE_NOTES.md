@@ -1,5 +1,10 @@
 # Release Notes
 
+## v0.3.5
+- Added totals for the sliding window (total buys/sells, largest buys/sells, last buy/sell) and a summary row at the bottom of ladder.
+- Turned off last trades on UI by default. Turned on Bid/Ask ladder by default.
+- BUG FIX: Fixed issue that was causing an internal error with bid and ask ladders.
+
 ## v0.3.4
 - BUG FIX: Fixed issue that was causing the ladder to suddenly stop rendering some columns.
 
