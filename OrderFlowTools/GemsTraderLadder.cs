@@ -86,7 +86,7 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
             CUMULATIVE_ASK_IN_WINDOW,
             [Description("Σ+/-")]
             CUMULATIVE_BID_IN_WINDOW,
-            [Description(" ")]
+            [Description("OFS")]
             OF_STRENGTH
         }
 
@@ -108,6 +108,8 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
         private Pen bidSizePen;
         private Pen askSizePen;
         private Pen highlightPen;
+        private Pen buyHighlightPen;
+        private Pen sellHighlightPen;
         private double halfPenWidth;
         private bool heightUpdateNeeded;
         private double textHeight;
@@ -210,10 +212,10 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
                 DisplayAccountValue = false;
                 DisplayPL = false;
                 DisplaySessionPL = false;
-                DisplayBidAsk = false;
+                DisplayBidAsk = true;
                 DisplayBidAskHistogram = true;
                 DisplayBidAskChange = false;
-                DisplayLastSize = true;
+                DisplayLastSize = false;
                 DisplaySlidingWindowBuysSells = true;
                 DisplaySessionBuysSells = true;
                 DisplayOrderFlowStrengthBar = false;
@@ -292,6 +294,8 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
                     askSizePen = new Pen(AskSizeColor, gridPen.Thickness);
 
                     highlightPen = new Pen(HighlightColor, gridPen.Thickness);
+                    buyHighlightPen = new Pen(BuyTextColor, gridPen.Thickness);
+                    sellHighlightPen = new Pen(SellTextColor, gridPen.Thickness);
                 }
 
                 if (SuperDom.Instrument != null && SuperDom.IsConnected)
@@ -303,20 +307,6 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
                         BarsPeriodType = BarsPeriodType.Tick,
                         Value = 1
                     };
-
-                    //BarsPeriod l2Bid = new BarsPeriod
-                    //{
-                    //    MarketDataType = MarketDataType.Bid,
-                    //    BarsPeriodType = BarsPeriodType.Tick,
-                    //    Value = 1
-                    //};
-
-                    //BarsPeriod l2Ask = new BarsPeriod
-                    //{
-                    //    MarketDataType = MarketDataType.Ask,
-                    //    BarsPeriodType = BarsPeriodType.Tick,
-                    //    Value = 1
-                    //};
 
                     SuperDom.Dispatcher.InvokeAsync(() => SuperDom.SetLoadingString());
                     clearLoadingSent = false;
@@ -624,70 +614,58 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
 
         private List<LadderRow> GetBidLadderCopy()
         {
-            long cond = 0;
             List<LadderRow> ladder = null;
             try
             {
                 if (SuperDom.MarketDepth.Bids.Count > 0)
                 {
-                    cond = 1;
                     if (SuperDom.MarketDepth.Bids.Count > BidAskRows)
                     {
-                        cond = 2;
                         lock (SuperDom.MarketDepth.Bids)
                         {
-                            cond = 3;
-                            cond = SuperDom.MarketDepth.Bids.Count;
                             ladder = SuperDom.MarketDepth.Bids.GetRange(0, BidAskRows);
                         }
                     }
                     else
                     {
-                        cond = 4;
                         ladder = SuperDom.MarketDepth.Bids;
                     }
-                    cond = 5;
                     ladder = new List<NinjaTrader.Gui.SuperDom.LadderRow>(ladder);
                 }
             }
-            catch (Exception ex)
+            catch (Exception e)
             {
-                Print("GetBidLadderCopy : cond: " + cond + "\n" + ex.ToString());
+                // NOP for now. 
+                // TODO: Need to implement external orderbook
             }
             return ladder;
         }
 
         private List<LadderRow> GetAskLadderCopy()
         {
-            long cond = 0;
             List<LadderRow> ladder = null;
             try
             {
                 if (SuperDom.MarketDepth.Asks.Count > 0)
                 {
-                    cond = 1;
                     if (SuperDom.MarketDepth.Asks.Count > BidAskRows)
                     {
-                        cond = 2;
                         lock (SuperDom.MarketDepth.Asks)
                         {
-                            cond = 3;
-                            cond = SuperDom.MarketDepth.Asks.Count;
                             ladder = SuperDom.MarketDepth.Asks.GetRange(0, BidAskRows);
                         }
                     }
                     else
                     {
-                        cond = 4;
                         ladder = SuperDom.MarketDepth.Asks;
                     }
-                    cond = 5;
                     ladder = new List<NinjaTrader.Gui.SuperDom.LadderRow>(ladder);
                 }
             }
-            catch (Exception ex)
+            catch (Exception e)
             {
-                Print("GetAskLadderCopy : cond: " + cond + "\n" + ex.ToString());
+                // NOP for now. 
+                // TODO: Need to implement external orderbook
             }
             return ladder;
         }

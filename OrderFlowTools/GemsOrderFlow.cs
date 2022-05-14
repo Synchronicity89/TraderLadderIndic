@@ -67,8 +67,6 @@ namespace Gemify.OrderFlow
     class GemsOrderFlow
     {
 
-        private bool DEBUG = true;
-
         protected ITradeClassifier tradeClassifier;
 
         private ConcurrentDictionary<double, Trade> SlidingWindowBuys;
@@ -186,13 +184,13 @@ namespace Gemify.OrderFlow
                     {
                         BidAsk entry = new BidAsk(row.Volume, row.Time);
                         if (CurrBid != null) CurrBid.TryAdd(row.Price, entry);
-                        else Print("SetBidLadder: WTH?? This is not supposed to happen.");
                     }
                 }
             }
             catch (Exception ex)
             {
-                Print(ex.ToString());
+                // NOP for now. 
+                // TODO: Need to implement external orderbook
             }
         }
 
@@ -208,13 +206,13 @@ namespace Gemify.OrderFlow
                     {
                         BidAsk entry = new BidAsk(row.Volume, row.Time);
                         if (CurrAsk != null) CurrAsk.TryAdd(row.Price, entry);
-                        else Print("SetAskLadder: WTH?? This is not supposed to happen.");
                     }
                 }
             }
             catch (Exception ex)
             {
-                Print(ex.ToString());
+                // NOP for now. 
+                // TODO: Need to implement external orderbook
             }
         }
 
@@ -969,69 +967,42 @@ namespace Gemify.OrderFlow
 
         internal long GetBid(double price)
         {
-            try
+            BidAsk entry;
+            if (CurrBid.TryGetValue(price, out entry))
             {
-                BidAsk entry;
-                if (CurrBid.TryGetValue(price, out entry))
-                {
-                    return Convert.ToInt64(entry.Size);
-                }
-            }
-            catch (Exception e)
-            {
-                Print("An error occurred. Please report this bug. Thanks for your help." + e.ToString());
+                return Convert.ToInt64(entry.Size);
             }
             return 0;
         }
 
         internal long GetAsk(double price)
         {
-            try
+            BidAsk entry;
+            if (CurrAsk.TryGetValue(price, out entry))
             {
-                BidAsk entry;
-                if (CurrAsk.TryGetValue(price, out entry))
-                {
-                    return Convert.ToInt64(entry.Size);
-                }
-            }
-            catch (Exception e)
-            {
-                Print("An error occurred. Please report this bug. Thanks for your help." + e.ToString());
+                return Convert.ToInt64(entry.Size);
             }
             return 0;
         }
 
         internal long GetPrevBid(double price)
         {
-            try
+            BidAsk entry;
+            if (PrevBid.TryGetValue(price, out entry))
             {
-                BidAsk entry;
-                if (PrevBid.TryGetValue(price, out entry))
-                {
-                    return Convert.ToInt64(entry.Size);
-                }
-            }
-            catch (Exception e)
-            {
-                Print("An error occurred. Please report this bug. Thanks for your help." + e.ToString());
+                return Convert.ToInt64(entry.Size);
             }
             return 0;
         }
 
         internal long GetPrevAsk(double price)
         {
-            try
+            BidAsk entry;
+            if (PrevAsk.TryGetValue(price, out entry))
             {
-                BidAsk entry;
-                if (PrevAsk.TryGetValue(price, out entry))
-                {
-                    return Convert.ToInt64(entry.Size);
-                }
+                return Convert.ToInt64(entry.Size);
             }
-            catch (Exception e)
-            {
-                Print("An error occurred. Please report this bug. Thanks for your help." + e.ToString());
-            }
+
             return 0;
         }
     }
