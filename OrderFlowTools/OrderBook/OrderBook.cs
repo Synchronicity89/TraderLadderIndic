@@ -36,7 +36,8 @@ namespace Gemify.OrderFlow.OrderBook
         {
             // Copy current value into prev
             BidAsk currBidAsk = null;
-            if (CurrBid.TryGetValue(price, out currBidAsk)) {
+            if (CurrBid.TryGetValue(price, out currBidAsk))
+            {
                 PrevBid.AddOrUpdate(price, currBidAsk, (key, existing) => currBidAsk);
             }
 
@@ -79,7 +80,7 @@ namespace Gemify.OrderFlow.OrderBook
         {
             BidAsk bidAsk = null;
             PrevBid.TryGetValue(price, out bidAsk);
-            return bidAsk;            
+            return bidAsk;
         }
 
         internal BidAsk GetPreviousAsk(double price)

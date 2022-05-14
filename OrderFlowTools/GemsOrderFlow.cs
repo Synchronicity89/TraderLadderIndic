@@ -625,40 +625,41 @@ namespace Gemify.OrderFlow
         {
             OFStrength orderFlowStrength = new OFStrength();
 
-                // Short-circuit if there's not enough data
-            if ((SlidingWindowBuys.Count + SlidingWindowSells.Count) < minSlidingWindowTrades) {
-                    return orderFlowStrength;
-                }
+            // Short-circuit if there's not enough data
+            if ((SlidingWindowBuys.Count + SlidingWindowSells.Count) < minSlidingWindowTrades)
+            {
+                return orderFlowStrength;
+            }
 
-                long buyImbalance = 0, sellImbalance = 0, totalImbalance = 0, buysInSlidingWindow = 0, sellsInSlidingWindow = 0, totalVolume = 0;
+            long buyImbalance = 0, sellImbalance = 0, totalImbalance = 0, buysInSlidingWindow = 0, sellsInSlidingWindow = 0, totalVolume = 0;
 
-                if (mode == OFSCalculationMode.COMBINED || mode == OFSCalculationMode.IMBALANCE || mode == OFSCalculationMode.LEVEL2)
+            if (mode == OFSCalculationMode.COMBINED || mode == OFSCalculationMode.IMBALANCE || mode == OFSCalculationMode.LEVEL2)
+            {
+                // Imbalance data
+                buyImbalance = GetImbalancedBuys(price, tickSize);
+                sellImbalance = GetImbalancedSells(price, tickSize);
+
+                if (buyImbalance + sellImbalance == 0)
                 {
-                    // Imbalance data
-                    buyImbalance = GetImbalancedBuys(price, tickSize);
-                    sellImbalance = GetImbalancedSells(price, tickSize);
-
-                    if (buyImbalance + sellImbalance == 0)
-                    {
-                        buyImbalance = sellImbalance = 1;
-                    }
-
-                    totalImbalance = buyImbalance + sellImbalance;
+                    buyImbalance = sellImbalance = 1;
                 }
 
-                if (mode == OFSCalculationMode.COMBINED || mode == OFSCalculationMode.BUY_SELL)
+                totalImbalance = buyImbalance + sellImbalance;
+            }
+
+            if (mode == OFSCalculationMode.COMBINED || mode == OFSCalculationMode.BUY_SELL)
+            {
+                // Buy/Sell data in sliding window
+                buysInSlidingWindow = GetBuysInSlidingWindow();
+                sellsInSlidingWindow = GetSellsInSlidingWindow();
+
+                if (buysInSlidingWindow + sellsInSlidingWindow == 0)
                 {
-                    // Buy/Sell data in sliding window
-                    buysInSlidingWindow = GetBuysInSlidingWindow();
-                    sellsInSlidingWindow = GetSellsInSlidingWindow();
-
-                    if (buysInSlidingWindow + sellsInSlidingWindow == 0)
-                    {
-                        buysInSlidingWindow = sellsInSlidingWindow = 1;
-                    }
-
-                    totalVolume = sellsInSlidingWindow + buysInSlidingWindow;
+                    buysInSlidingWindow = sellsInSlidingWindow = 1;
                 }
+
+                totalVolume = sellsInSlidingWindow + buysInSlidingWindow;
+            }
 
             if (mode == OFSCalculationMode.LEVEL2)
             {

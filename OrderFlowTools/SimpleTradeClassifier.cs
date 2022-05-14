@@ -14,7 +14,7 @@ namespace Gemify.OrderFlow
         TradeAggressor ITradeClassifier.ClassifyTrade(double ask, double bid, double close, long volume, DateTime time)
         {
             TradeAggressor aggressor;
-            
+
             double midpoint = (ask + bid) / 2.0;
 
             if (ask == bid)
@@ -23,7 +23,7 @@ namespace Gemify.OrderFlow
                 {
                     aggressor = TradeAggressor.BUYER;
                 }
-                else 
+                else
                 {
                     aggressor = TradeAggressor.SELLER;
                 }
@@ -34,7 +34,7 @@ namespace Gemify.OrderFlow
                 {
                     aggressor = TradeAggressor.BUYER;
                 }
-                else 
+                else
                 {
                     aggressor = TradeAggressor.SELLER;
                 }
