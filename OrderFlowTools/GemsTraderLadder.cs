@@ -97,7 +97,7 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
 
         #region Variable Decls
         // VERSION
-        private readonly string TraderLadderVersion = "v0.3.4";
+        private readonly string TraderLadderVersion = "v0.3-WIP";
 
         // UI variables
         private bool clearLoadingSent;
@@ -740,14 +740,7 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
                             }
 
                             // Render the grid
-                            try
-                            {
                                 DrawGrid(dc, renderWidth, verticalOffset, row);
-                            }
-                            catch (Exception e)
-                            {
-                                Print("An error occurred. Please report this bug. Thanks for your help." + e.ToString());
-                            }
 
                             verticalOffset += SuperDom.ActualRowHeight;
                         }
@@ -785,8 +778,6 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
 
         private void DrawGrid(DrawingContext dc, double renderWidth, double verticalOffset, PriceRow row)
         {
-            try
-            {
                 double x = 0;
 
                 for (int i = 0; i < columns.Count; i++)
@@ -862,7 +853,7 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
                     // Draw grid rectangle
                     dc.DrawRectangle(cellColor, null, rect);
                     dc.DrawLine(gridPen, new Point(-gridPen.Thickness, rect.Bottom), new Point(renderWidth - halfPenWidth, rect.Bottom));
-                    if (row.Price != SuperDom.CurrentLast && colDef.ColumnType != ColumnType.OF_STRENGTH && colDef.ColumnType != ColumnType.VOLUME)
+                    if (row.Price != SuperDom.LowerPrice && row.Price != SuperDom.CurrentLast && colDef.ColumnType != ColumnType.OF_STRENGTH && colDef.ColumnType != ColumnType.VOLUME)
                     {
                         dc.DrawLine(gridPen, new Point(rect.Right, verticalOffset), new Point(rect.Right, rect.Bottom));
                     }
@@ -1085,11 +1076,6 @@ namespace NinjaTrader.NinjaScript.SuperDomColumns
                     x += cellWidth;
                 }
             }
-            catch (Exception e)
-            {
-                Print("An error occurred. Please report this bug. Thanks for your help." + e.ToString());
-            }
-        }
 
         #region Text utils
         private FormattedText FormatText(string text, double renderWidth, Brush color, TextAlignment alignment)

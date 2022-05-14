@@ -11,7 +11,6 @@ using System.Text;
 using System.Threading.Tasks;
 using NinjaTrader.NinjaScript.Indicators;
 using NinjaTrader.Gui.SuperDom;
-using System.Runtime.Caching;
 
 namespace Gemify.OrderFlow
 {
@@ -626,12 +625,8 @@ namespace Gemify.OrderFlow
         {
             OFStrength orderFlowStrength = new OFStrength();
 
-            try
-            {
                 // Short-circuit if there's not enough data
-                if ((SlidingWindowBuys.Count + SlidingWindowSells.Count) < minSlidingWindowTrades)
-                {
-                    Print("Less than min trades in sliding window");
+            if ((SlidingWindowBuys.Count + SlidingWindowSells.Count) < minSlidingWindowTrades) {
                     return orderFlowStrength;
                 }
 
@@ -665,41 +660,36 @@ namespace Gemify.OrderFlow
                     totalVolume = sellsInSlidingWindow + buysInSlidingWindow;
                 }
 
-                if (mode == OFSCalculationMode.LEVEL2)
+            if (mode == OFSCalculationMode.LEVEL2)
+            {
+                double cumulativeBidChange = GetTotalCumulativeBidChanges();
+                double cumulativeAskChange = GetTotalCumulativeBidChanges();
+                double totalChanges = cumulativeAskChange + cumulativeBidChange;
+
+                bool allPositiveBidChanges = isAllBidChangesPositive();
+                bool allPositiveAskChanges = isAllAskChangesPositive();
+
+                bool allNegativeBidChanges = isAllBidChangesNegative();
+                bool allNegativeAskChanges = isAllAskChangesNegative();
+
+                orderFlowStrength.buyStrength = 0;
+                orderFlowStrength.sellStrength = 0;
+
+                if ((allPositiveAskChanges || allNegativeBidChanges) && sellImbalance > buyImbalance)
                 {
-                    double cumulativeBidChange = GetTotalCumulativeBidChanges();
-                    double cumulativeAskChange = GetTotalCumulativeBidChanges();
-                    double totalChanges = cumulativeAskChange + cumulativeBidChange;
-
-                    bool allPositiveBidChanges = isAllBidChangesPositive();
-                    bool allPositiveAskChanges = isAllAskChangesPositive();
-
-                    bool allNegativeBidChanges = isAllBidChangesNegative();
-                    bool allNegativeAskChanges = isAllAskChangesNegative();
-
-                    orderFlowStrength.buyStrength = 0;
-                    orderFlowStrength.sellStrength = 0;
-
-                    if ((allPositiveAskChanges || allNegativeBidChanges) && sellImbalance > buyImbalance)
-                    {
-                        Print("L2 Sell");
-                        orderFlowStrength.sellStrength = 100;
-                    }
-                    else if ((allPositiveBidChanges || allNegativeAskChanges) && buyImbalance > sellImbalance)
-                    {
-                        Print("L2 Buy");
-                        orderFlowStrength.buyStrength = 100;
-                    }
+                    Print("L2 Sell");
+                    orderFlowStrength.sellStrength = 100;
                 }
-                else
+                else if ((allPositiveBidChanges || allNegativeAskChanges) && buyImbalance > sellImbalance)
                 {
-                    orderFlowStrength.buyStrength = (Convert.ToDouble(buysInSlidingWindow + buyImbalance) / Convert.ToDouble(totalVolume + totalImbalance)) * 100.00;
-                    orderFlowStrength.sellStrength = (Convert.ToDouble(sellsInSlidingWindow + sellImbalance) / Convert.ToDouble(totalVolume + totalImbalance)) * 100.00;
+                    Print("L2 Buy");
+                    orderFlowStrength.buyStrength = 100;
                 }
             }
-            catch (Exception e)
+            else
             {
-                Print("An error occurred. Please report this bug. Thanks for your help." + e.ToString());
+                orderFlowStrength.buyStrength = (Convert.ToDouble(buysInSlidingWindow + buyImbalance) / Convert.ToDouble(totalVolume + totalImbalance)) * 100.00;
+                orderFlowStrength.sellStrength = (Convert.ToDouble(sellsInSlidingWindow + sellImbalance) / Convert.ToDouble(totalVolume + totalImbalance)) * 100.0;
             }
 
             return orderFlowStrength;
